@@ -22,7 +22,7 @@ import java.util.Comparator;
  */
 public class Building implements HasLocation {
 	/** The building's unique id. */
-	public final int id;
+	public int id;
 	/** The building type definition. */
 	public final BuildingType type;
 	/** The race of the building. */

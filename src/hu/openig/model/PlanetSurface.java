@@ -275,7 +275,7 @@ public class PlanetSurface {
 
 			BuildingType bt = bm.buildings.get(type);
 
-			Building b = new Building(id, bt, race);
+			Building b = BuildingFactory.getBuilding(id, bt, race);
 			int x = tile.getInt("x");
 			int y = tile.getInt("y");
 		
