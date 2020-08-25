@@ -885,7 +885,7 @@ public class Planet implements Named, Owned, HasInventory, HasPosition {
 	 */
 	private Building placeNewBuilding(BuildingType bt, String race, int x, int y) {
 		int bid = world.newId();
-		Building b = BuildingFactory.getBuilding(bid, bt, race);
+		Building b = new Building(bid, bt, race);
 		b.location = Location.of(x, y);
 		placeBuilding(b);
 
@@ -974,7 +974,7 @@ public class Planet implements Named, Owned, HasInventory, HasPosition {
 			if (ts != null) {
 				Point pt = findLocation(ts);
 				if (pt != null) {
-					Building b = BuildingFactory.getBuilding(owner.world.newId(), bt, owner.race);
+					Building b = new Building(owner.world.newId(), bt, owner.race);
 					b.location = Location.of(pt.x + 1, pt.y - 1);
 					placeBuilding(b);
 					rebuildRoads();

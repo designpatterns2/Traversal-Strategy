@@ -12,7 +12,26 @@ import hu.openig.core.Action0;
 import hu.openig.core.Func1;
 import hu.openig.core.Pair;
 import hu.openig.core.Pred1;
-import hu.openig.model.*;
+import hu.openig.model.AIBuilding;
+import hu.openig.model.AIControls;
+import hu.openig.model.AIFleet;
+import hu.openig.model.AIInventoryItem;
+import hu.openig.model.AIPlanet;
+import hu.openig.model.AIResult;
+import hu.openig.model.AIWorld;
+import hu.openig.model.BattleGroundVehicle;
+import hu.openig.model.Building;
+import hu.openig.model.BuildingType;
+import hu.openig.model.FleetTask;
+import hu.openig.model.GroundwarUnitType;
+import hu.openig.model.ModelUtils;
+import hu.openig.model.Planet;
+import hu.openig.model.PlanetProblems;
+import hu.openig.model.Player;
+import hu.openig.model.Production;
+import hu.openig.model.ResearchSubCategory;
+import hu.openig.model.ResearchType;
+import hu.openig.model.World;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -986,7 +1005,7 @@ public abstract class Planner {
 		world.money -= bt.cost;
 		planet.statistics.constructing = true;
 		
-		AIBuilding b = new AIBuilding(BuildingFactory.getBuilding(-1, bt, planet.race));
+		AIBuilding b = new AIBuilding(new Building(-1, bt, planet.race));
 		planet.buildings.add(b);
 
 		Planet.updateStatistics(planet.statistics, planet.owner, b.building);
