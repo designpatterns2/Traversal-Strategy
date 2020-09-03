@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -38,8 +38,9 @@ import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.pathfinding.CostDecider;
 import net.sf.freecol.common.model.pathfinding.CostDeciders;
-import net.sf.freecol.common.model.pathfinding.GoalDecider;
-import net.sf.freecol.common.model.pathfinding.GoalDeciders;
+import net.sf.freecol.common.model.pathfinding.goaldeciders.ClosestSettlementGoalDecider;
+import net.sf.freecol.common.model.pathfinding.goaldeciders.ComposedGoalDecider;
+import net.sf.freecol.common.model.pathfinding.goaldeciders.GoalDecider;
 import net.sf.freecol.common.util.LogBuilder;
 import net.sf.freecol.server.ai.AIMain;
 import net.sf.freecol.server.ai.AIMessage;
@@ -180,8 +181,8 @@ public final class ScoutingMission extends Mission {
                     return false;
                 }
             };
-        return (deferOK) ? GoalDeciders.getComposedGoalDecider(false, gd,
-            GoalDeciders.getOurClosestSettlementGoalDecider())
+        return (deferOK) ? new ComposedGoalDecider(false, gd,
+            new ClosestSettlementGoalDecider())
             : gd;
     }
 

@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -97,7 +97,7 @@ public class FreeColOptionPaneUI extends BasicOptionPaneUI {
                 ChoiceItem ci = (ChoiceItem)buttons[i];
                 String label = ci.toString();
                 Icon icon = ci.getIcon();
-                b = (label == null || label.isEmpty()) ? new JButton(icon)
+                b = (label.isEmpty()) ? new JButton(icon)
                     : new JButton(label, icon);
                 b.setName("OptionPane.button." + label);
                 if (ci.isOK()) this.okIndex = i;

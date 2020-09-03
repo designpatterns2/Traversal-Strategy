@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -19,8 +19,6 @@
 
 package net.sf.freecol.common.networking;
 
-import java.awt.Color;
-
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.client.FreeColClient;
@@ -38,7 +36,6 @@ import net.sf.freecol.server.model.ServerPlayer;
 public class ChatMessage extends AttributeMessage {
 
     public static final String TAG = "chat";
-    private static final String COLOR_TAG = "color";
     private static final String MESSAGE_TAG = "message";
     private static final String PRIVATE_TAG = "private";
     private static final String SENDER_TAG = "sender";
@@ -53,10 +50,8 @@ public class ChatMessage extends AttributeMessage {
      * @param privateChat Whether this message is private.
      */
     public ChatMessage(Player player, String message, boolean privateChat) {
-        super(TAG, COLOR_TAG, String.valueOf(player.getNationColor().getRGB()),
-              MESSAGE_TAG, message,
-              PRIVATE_TAG, String.valueOf(privateChat),
-              SENDER_TAG, player.getName());
+        super(TAG, SENDER_TAG, player.getId(), MESSAGE_TAG, message,
+              PRIVATE_TAG, String.valueOf(privateChat));
     }
 
     /**
@@ -69,7 +64,7 @@ public class ChatMessage extends AttributeMessage {
     public ChatMessage(@SuppressWarnings("unused") Game game,
                        FreeColXMLReader xr)
         throws XMLStreamException {
-        super(TAG, xr, COLOR_TAG, MESSAGE_TAG, SENDER_TAG, PRIVATE_TAG);
+        super(TAG, xr, SENDER_TAG, MESSAGE_TAG, PRIVATE_TAG);
     }
 
 
@@ -95,16 +90,16 @@ public class ChatMessage extends AttributeMessage {
     @Override
     public void clientHandler(FreeColClient freeColClient) {
         final Game game = freeColClient.getGame();
-        final Color color = getColor();
-        final String sender = getSender();
+        final Player player = getPlayer(game);
         final String text = getMessage();
         final boolean isPrivate = isPrivate();
-        if (sender == null || text == null) return;
+
+        if (player == null || text == null) return;
 
         if (freeColClient.isInGame()) {
-            igc(freeColClient).chatHandler(sender, text, color, isPrivate);
+            igc(freeColClient).chatHandler(player, text, isPrivate);
         } else {
-            pgc(freeColClient).chatHandler(sender, text, color, isPrivate);
+            pgc(freeColClient).chatHandler(player, text, isPrivate);
         }
     }
 
@@ -126,17 +121,14 @@ public class ChatMessage extends AttributeMessage {
     // Public interface
 
     /**
-     * Get the color.
+     * Who sent this ChatMessage?
      *
-     * @return The new {@code Color}.
+     * @param game The {@code Game} the player is in.
+     * @return The player that sent this ChatMessage.
      */
-    public Color getColor() {
-        Color color = null;
-        try {
-            int rgb = getIntegerAttribute(COLOR_TAG, 0);
-            color = new Color(rgb);
-        } catch (NumberFormatException nfe) {}
-        return color;
+    public Player getPlayer(Game game) {
+        return game.getFreeColGameObject(getStringAttribute(SENDER_TAG),
+                                         Player.class);
     }
 
     /**
@@ -155,14 +147,5 @@ public class ChatMessage extends AttributeMessage {
      */
     public boolean isPrivate() {
         return getBooleanAttribute(PRIVATE_TAG, Boolean.FALSE);
-    }
-
-    /**
-     * Who sent this ChatMessage?
-     *
-     * @return The sender tag for this ChatMessage.
-     */
-    public String getSender() {
-        return getStringAttribute(SENDER_TAG);
     }
 }

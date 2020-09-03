@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -22,10 +22,9 @@ package net.sf.freecol.client.gui.panel;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.event.ActionEvent;
 import java.awt.GridLayout;
-import java.awt.image.BufferedImage;
 import java.awt.Image;
+import java.awt.event.ActionEvent;
 import java.util.List;
 import java.util.function.Function;
 import java.util.logging.Logger;
@@ -85,30 +84,28 @@ public final class MapEditorTransformPanel extends FreeColPanel {
             this.magnitude = magnitude;
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public void transform(Tile tile) {
-            final TileImprovementType riverType = tile.getSpecification()
-                .getTileImprovementType("model.improvement.river");
-            if (!riverType.isTileTypeAllowed(tile.getType())) return;
+            TileImprovementType riverType =
+                tile.getSpecification().getTileImprovementType("model.improvement.river");
 
-            if (tile.hasRiver()) {
-                tile.removeRiver();
-            } else {
-                StringBuilder sb = new StringBuilder(64);
-                for (Direction direction : Direction.longSides) {
-                    Tile t = tile.getNeighbourOrNull(direction);
-                    TileImprovement otherRiver = (t == null) ? null
-                        : t.getRiver();
-                    if (t == null || (t.isLand() && otherRiver == null)) {
-                        sb.append('0');
-                    } else {
-                        sb.append(magnitude);
+            if (riverType.isTileTypeAllowed(tile.getType())) {
+                if (!tile.hasRiver()) {
+                    StringBuilder sb = new StringBuilder(64);
+                    for (Direction direction : Direction.longSides) {
+                        Tile t = tile.getNeighbourOrNull(direction);
+                        TileImprovement otherRiver = (t == null) ? null
+                            : t.getRiver();
+                        if (t == null || (t.isLand() && otherRiver == null)) {
+                            sb.append('0');
+                        } else {
+                            sb.append(magnitude);
+                        }
                     }
+                    tile.addRiver(magnitude, sb.toString());
+                } else {
+                    tile.removeRiver();
                 }
-                tile.addRiver(magnitude, sb.toString());
             }
         }
     }
@@ -134,9 +131,6 @@ public final class MapEditorTransformPanel extends FreeColPanel {
             return type;
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public void transform(Tile tile) {
             TileImprovement river = tile.getRiver();
@@ -157,9 +151,6 @@ public final class MapEditorTransformPanel extends FreeColPanel {
      */
     private class ResourceTransform extends MapTransform {
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public void transform(Tile t) {
             // Check if there is a resource already
@@ -192,10 +183,6 @@ public final class MapEditorTransformPanel extends FreeColPanel {
     }
 
     private static class LostCityRumourTransform extends MapTransform {
-
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public void transform(Tile t) {
             if (t.isLand()) {
@@ -210,10 +197,6 @@ public final class MapEditorTransformPanel extends FreeColPanel {
     }
 
     private class SettlementTransform extends MapTransform {
-
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public void transform(Tile t) {
             if (!t.isLand() || t.hasSettlement()) return;
@@ -229,28 +212,6 @@ public final class MapEditorTransformPanel extends FreeColPanel {
             sis.placeSettlement(true);
             sis.addUnits(null);
             logger.info("Add settlement " + sis.getName() + " to tile " + t);
-        }
-    }
-
-
-    public static final class TileTypeTransform extends MapTransform {
-        private final TileType tileType;
-
-        private TileTypeTransform(TileType tileType) {
-            this.tileType = tileType;
-        }
-
-        public TileType getTileType() {
-            return tileType;
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void transform(Tile t) {
-            t.changeType(tileType);
-            t.removeLostCityRumour();
         }
     }
 
@@ -319,10 +280,9 @@ public final class MapEditorTransformPanel extends FreeColPanel {
                             ImageLibrary.SMALLER_SCALE);
 
         for (TileType type : spec.getTileTypeList()) {
-            BufferedImage tileImage = ImageLibrary
-                .getTileImageWithOverlayAndForest(type, terrainSize);
-            listPanel.add(buildButton(tileImage, Messages.getName(type),
-                                      new TileTypeTransform(type)));
+            listPanel.add(buildButton(getGUI().createTileImageWithOverlayAndForest(type, terrainSize),
+                    Messages.getName(type),
+                    new TileTypeTransform(type)));
         }
 
         listPanel.add(buildButton(ImageLibrary.getRiverImage("0101", riverSize),
@@ -416,9 +376,26 @@ public final class MapEditorTransformPanel extends FreeColPanel {
     private ResourceType getResourceChoice(List<ResourceType> resources) {
         final Function<ResourceType, ChoiceItem<ResourceType>> mapper
             = rt -> new ChoiceItem<ResourceType>(Messages.getName(rt), rt);
-        StringTemplate tmpl = StringTemplate
-            .template("mapEditorTransformPanel.chooseResource");
+        StringTemplate tmpl = StringTemplate.template("mapEditorTransformPanel.chooseResource");
         return getGUI().getChoice(tmpl, "cancel",
                                   transform(resources, alwaysTrue(), mapper));
+    }
+
+    public static final class TileTypeTransform extends MapTransform {
+        private final TileType tileType;
+
+        private TileTypeTransform(TileType tileType) {
+            this.tileType = tileType;
+        }
+
+        public TileType getTileType() {
+            return tileType;
+        }
+
+        @Override
+        public void transform(Tile t) {
+            t.changeType(tileType);
+            t.removeLostCityRumour();
+        }
     }
 }

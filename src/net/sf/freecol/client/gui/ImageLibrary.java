@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -288,11 +288,11 @@ public final class ImageLibrary {
         case 0:
             return null;
         case 1:
-            return getSizedImage(keys.get(0), size, false);
+            return getSizedImageInternal(keys.get(0), size, false);
         default:
             keys.sort(Comparator.naturalOrder());
             String key = keys.get(Math.abs(id.hashCode() % count));
-            return getSizedImage(key, size, false);
+            return getSizedImageInternal(key, size, false);
         }
     }
 
@@ -557,41 +557,6 @@ public final class ImageLibrary {
     }
 
     /**
-     * Get the image for the given identifier, size and grayscale choice.
-     *
-     * @param key The image key.
-     * @param size The {@code Dimension} required.
-     * @param grayscale If true, return the grayscale version of the image.
-     * @return The {@code BufferedImage} found by the {@code ResourceManager}.
-     */
-    public static BufferedImage getSizedImage(String key, Dimension size,
-                                              boolean grayscale) {
-        return ResourceManager.getImage(key, size, grayscale);
-    }
-
-    /**
-     * Get the image for the given identifier, using the current scaling.
-     *
-     * @param key The image key.
-     * @return The {@code BufferedImage} found by the {@code ResourceManager}.
-     */
-    public BufferedImage getScaledImage(String key) {
-        return getScaledImage(key, this.scaleFactor, false);
-    }
-
-    public BufferedImage getSmallImage(String key) {
-        return getScaledImage(key, this.scaleFactor * SMALL_SCALE, false);
-    }
-
-    public BufferedImage getSmallerImage(String key) {
-        return getScaledImage(key, this.scaleFactor * SMALLER_SCALE, false);
-    }
-    
-    public BufferedImage getTinyImage(String key) {
-        return getScaledImage(key, this.scaleFactor * TINY_SCALE, false);
-    }
-
-    /**
      * Get the image for the given identifier, scaling and grayscale choice.
      *
      * This routine *should* remain private, so as to discourage arbitrary
@@ -604,14 +569,45 @@ public final class ImageLibrary {
      * @param grayscale If true, return the grayscale version of the image.
      * @return The {@code BufferedImage} found by the {@code ResourceManager}.
      */
-    public static BufferedImage getScaledImage(String key, float scale,
-                                               boolean grayscale) {
-        final ImageResource ir = ResourceManager.getImageResource(key);
-        final BufferedImage image = ir.getImage();
-        if (image == null) return null;
+    private static BufferedImage getScaledImageInternal(String key, float scale,
+                                                        boolean grayscale) {
+        return ResourceManager.getImage(key, scale, grayscale);
+    }
 
-        Dimension d = new Dimension(image.getWidth(), image.getHeight());
-        return getSizedImage(key, scaleDimension(d, scale), grayscale);
+    /**
+     * Get the image for the given identifier, size and grayscale choice.
+     *
+     * @param key The image key.
+     * @param size The {@code Dimension} required.
+     * @param grayscale If true, return the grayscale version of the image.
+     * @return The {@code BufferedImage} found by the {@code ResourceManager}.
+     */
+    private static BufferedImage getSizedImageInternal(String key,
+                                                       Dimension size,
+                                                       boolean grayscale) {
+        return ResourceManager.getImage(key, size, grayscale);
+    }
+
+    /**
+     * Get the image for the given identifier, using the current scaling.
+     *
+     * @param key The image key.
+     * @return The {@code BufferedImage} found by the {@code ResourceManager}.
+     */
+    public BufferedImage getScaledImage(String key) {
+        return getScaledImageInternal(key, this.scaleFactor, false);
+    }
+
+    public BufferedImage getSmallImage(String key) {
+        return getScaledImageInternal(key, this.scaleFactor * SMALL_SCALE, false);
+    }
+
+    public BufferedImage getSmallerImage(String key) {
+        return getScaledImageInternal(key, this.scaleFactor * SMALLER_SCALE, false);
+    }
+    
+    public BufferedImage getTinyImage(String key) {
+        return getScaledImageInternal(key, this.scaleFactor * TINY_SCALE, false);
     }
 
 
@@ -675,7 +671,7 @@ public final class ImageLibrary {
     public static BufferedImage getFoundingFatherImage(FoundingFather father,
                                                        boolean grayscale) {
         final String key = "image.flavor." + father.getId();
-        return getScaledImage(key, NORMAL_SCALE, grayscale);
+        return getScaledImageInternal(key, NORMAL_SCALE, grayscale);
     }
 
     public static BufferedImage getInformationPanelSkin(Player player) {
@@ -688,11 +684,11 @@ public final class ImageLibrary {
     }
 
     public static BufferedImage getLCRImage(Dimension size) {
-        return getSizedImage(LOST_CITY_RUMOUR, size, false);
+        return getSizedImageInternal(LOST_CITY_RUMOUR, size, false);
     }
 
     public static BufferedImage getLibertyImage() {
-        return getSizedImage(BELLS, ICON_SIZE, false);
+        return getSizedImageInternal(BELLS, ICON_SIZE, false);
     }
 
     public JLabel getLockLabel() {
@@ -778,28 +774,17 @@ public final class ImageLibrary {
     }
 
     /**
-     * Get an ImageIcon for a FreeColObject.
-     *
-     * @param display The {@code FreeColObject} to find an icon for.
-     * @return The {@code ImageIcon} found.
-     */
-    public ImageIcon getObjectImageIcon(FreeColObject display) {
-        if (display == null) return null;
-        BufferedImage image = getObjectImage(display, 2f);
-        return (image == null) ? null : new ImageIcon(image);
-    }
-
-    /**
      * Get the generic placeholder image.
      *
      * @return The placeholder {@code BufferedImage}.
      */     
     public static BufferedImage getPlaceholderImage() {
-        return getSizedImage("image.unit.placeholder", ICON_SIZE, false);
+        return getSizedImageInternal("image.unit.placeholder",
+                                     ICON_SIZE, false);
     }
     
     public static BufferedImage getReplacementImage(Dimension size) {
-        return getSizedImage(ResourceManager.REPLACEMENT_IMAGE, size, false);
+        return getSizedImageInternal(ResourceManager.REPLACEMENT_IMAGE, size, false);
     }
 
 
@@ -827,13 +812,13 @@ public final class ImageLibrary {
     public static BufferedImage getBuildingTypeImage(BuildingType buildingType,
                                                      Dimension size) {
         final String key = getBuildingTypeKey(buildingType);
-        return getSizedImage(key, size, false);
+        return getSizedImageInternal(key, size, false);
     }
 
     public BufferedImage getScaledBuildingTypeImage(BuildingType buildingType,
                                                     float scale) {
         final String key = getBuildingTypeKey(buildingType);
-        return getScaledImage(key, scale, false);
+        return getScaledImageInternal(key, scale, false);
     }
 
     private BufferedImage getScaledBuildingTypeImage(BuildingType buildingType,
@@ -842,7 +827,7 @@ public final class ImageLibrary {
         final String key = getBuildingTypeKey(buildingType);
         final String extraKey = key + "." + player.getNationResourceKey();
         final boolean hasExtra = ResourceManager.hasImageResource(extraKey);
-        return getScaledImage((hasExtra) ? extraKey : key, scale, false);
+        return getScaledImageInternal((hasExtra) ? extraKey : key, scale, false);
     }
 
     public BufferedImage getScaledBuildingImage(Building building) {
@@ -863,7 +848,7 @@ public final class ImageLibrary {
     public static BufferedImage getGoodsTypeImage(GoodsType gt,
                                                   Dimension size) {
         final String key = "image.icon." + gt.getId();
-        return getSizedImage(key, size, false);
+        return getSizedImageInternal(key, size, false);
     }
     
     public BufferedImage getScaledGoodsTypeImage(GoodsType gt) {
@@ -921,17 +906,17 @@ public final class ImageLibrary {
     }
             
         
-    public static String getNationKey(Nation nation) {
+    private static String getNationKey(Nation nation) {
         return "image.miscicon." + nation.getId();
     }
     
     public static BufferedImage getNationImage(Nation nation, Dimension size) {
         
-        return getSizedImage(getNationKey(nation), size, false);
+        return getSizedImageInternal(getNationKey(nation), size, false);
     }
 
     public static BufferedImage getNationImage(Nation nation, float scale) {
-        return getScaledImage(getNationKey(nation), scale, false);
+        return getScaledImageInternal(getNationKey(nation), scale, false);
     }
     
     public BufferedImage getScaledNationImage(Nation nation) {
@@ -1007,7 +992,7 @@ public final class ImageLibrary {
     public BufferedImage getBeachCornerImage(int index, int x, int y) {
         final String key = "image.tile.model.tile.beach.corner" + index
             + ".r" + ((isSpecialEven(x, y)) ? "0" : "1");
-        return getSizedImage(key, this.tileSize, false);
+        return getSizedImageInternal(key, this.tileSize, false);
     }
 
     /**
@@ -1021,7 +1006,7 @@ public final class ImageLibrary {
     public BufferedImage getBeachEdgeImage(int index, int x, int y) {
         final String key = "image.tile.model.tile.beach.edge" + index
             + ".r"+ ((isSpecialEven(x, y)) ? "0" : "1");
-        return getSizedImage(key, this.tileSize, false);
+        return getSizedImageInternal(key, this.tileSize, false);
     }
 
     /**
@@ -1039,7 +1024,7 @@ public final class ImageLibrary {
             + ((type==null) ? "model.tile.unexplored" : type.getId())
             + ".border." + direction
             + ".r" + ((isSpecialEven(x, y)) ?  "0" : "1");
-        return getSizedImage(key, this.tileSize, false);
+        return getSizedImageInternal(key, this.tileSize, false);
     }
 
 
@@ -1062,11 +1047,11 @@ public final class ImageLibrary {
                 + (("0000".equals(mask)) ? "0100" : mask);
             // Safety check providing fallback for incomplete mods
             if (ResourceManager.hasImageResource(key)) {
-                return getSizedImage(key, size, false);
+                return getSizedImageInternal(key, size, false);
             }
         }
         key = "image.tileforest." + type.getId();
-        return getSizedImage(key, size, false);
+        return getSizedImageInternal(key, size, false);
     }
 
     public static BufferedImage getForestImage(TileType type, Dimension size) {
@@ -1131,13 +1116,13 @@ public final class ImageLibrary {
     public static BufferedImage getResourceTypeImage(ResourceType rt,
                                                      Dimension size,
                                                      boolean grayscale) {
-        return getSizedImage(getResourceTypeKey(rt), size, grayscale);
+        return getSizedImageInternal(getResourceTypeKey(rt), size, grayscale);
     }
 
     private static BufferedImage getResourceTypeImage(ResourceType rt,
                                                       float scale,
                                                       boolean grayscale) {
-        return getScaledImage(getResourceTypeKey(rt), scale, grayscale);
+        return getScaledImageInternal(getResourceTypeKey(rt), scale, grayscale);
     }
 
     public BufferedImage getScaledResourceTypeImage(ResourceType rt) {
@@ -1168,7 +1153,7 @@ public final class ImageLibrary {
      */
     private static BufferedImage getRiverImageInternal(String style,
                                                        Dimension size) {
-        return getSizedImage(getRiverStyleKey(style), size, false);
+        return getSizedImageInternal(getRiverStyleKey(style), size, false);
     }
 
     public static BufferedImage getRiverImage(String style, Dimension size) {
@@ -1221,7 +1206,7 @@ public final class ImageLibrary {
                                             int x, int y) {
         final String key = "image.tile.model.tile.delta." + direction
             + ((magnitude == 1) ? ".small" : ".large");
-        return getSizedImage(key, this.tileSize, false);
+        return getSizedImageInternal(key, this.tileSize, false);
     }
 
     /**
@@ -1247,13 +1232,13 @@ public final class ImageLibrary {
     private static BufferedImage getSettlementTypeImage(SettlementType settlementType,
                                                         float scale) {
         final String key = getSettlementTypeKey(settlementType);
-        return getScaledImage(key, scale, false);
+        return getScaledImageInternal(key, scale, false);
     }
 
     public static BufferedImage getSettlementTypeImage(SettlementType settlementType,
                                                        Dimension size) {
         final String key = getSettlementTypeKey(settlementType);
-        return getSizedImage(key, size, false);
+        return getSizedImageInternal(key, size, false);
     }
     
     /**
@@ -1272,7 +1257,7 @@ public final class ImageLibrary {
                                       this.scaleFactor * SMALLER_SCALE);
     }
 
-    public static String getSettlementKey(Settlement settlement) {
+    private static String getSettlementKey(Settlement settlement) {
         String key = getSettlementTypeKey(settlement.getType());
         if (settlement instanceof Colony) {
             Colony colony = (Colony)settlement;
@@ -1302,12 +1287,12 @@ public final class ImageLibrary {
      */
     public static BufferedImage getSettlementImage(Settlement settlement,
                                                    float scale) {
-        return getScaledImage(getSettlementKey(settlement), scale, false);
+        return getScaledImageInternal(getSettlementKey(settlement), scale, false);
     }
 
     public static BufferedImage getSettlementImage(Settlement settlement,
                                                    Dimension size) {
-        return getSizedImage(getSettlementKey(settlement), size, false);
+        return getSizedImageInternal(getSettlementKey(settlement), size, false);
     }
 
     /**
@@ -1349,7 +1334,8 @@ public final class ImageLibrary {
     private static BufferedImage getTerrainImageInternal(TileType type,
                                                          int x, int y,
                                                          Dimension size) {
-        return getSizedImage(getTerrainImageKey(type, x, y), size, false);
+        return getSizedImageInternal(getTerrainImageKey(type, x, y),
+                                     size, false);
     }
     
     public static BufferedImage getTerrainImage(TileType type, int x, int y,
@@ -1372,53 +1358,9 @@ public final class ImageLibrary {
         final String key = "image.tile." + id;
         return (!ResourceManager.hasImageResource(key)) ? null
             // Has its own Overlay Image in Misc, use it
-            : getSizedImage(key, this.tileSize, false);
+            : getSizedImageInternal(key, this.tileSize, false);
     }
 
-    /**
-     * Get a scaled terrain-image for a terrain type (and position 0, 0).
-     *
-     * Called from MapeEditorTransformPanel.buildList
-     *
-     * @param type The type of the terrain-image to return.
-     * @param size The maximum size of the terrain image to return.
-     * @return The terrain-image
-     */
-    public static BufferedImage getTileImageWithOverlayAndForest(TileType type,
-                                                                 Dimension size) {
-        int width = (size.width > 0) ? size.width
-            : ((2 * TILE_SIZE.width * size.height
-                    + (TILE_OVERLAY_SIZE.height+1))
-                / (2 * ImageLibrary.TILE_OVERLAY_SIZE.height));
-        Dimension size2 = new Dimension(width, -1);
-        BufferedImage terrainImage = getTerrainImage(type, 0, 0, size2);
-        BufferedImage overlayImage = getOverlayImage(type, size2);
-        BufferedImage forestImage = (type.isForested())
-            ? getForestImage(type, size2)
-            : null;
-        if (overlayImage == null && forestImage == null) return terrainImage;
-
-        width = terrainImage.getWidth();
-        int height = terrainImage.getHeight();
-        if (overlayImage != null) {
-            height = Math.max(height, overlayImage.getHeight());
-        }
-        if (forestImage != null) {
-            height = Math.max(height, forestImage.getHeight());
-        }
-        BufferedImage compositeImage
-            = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = compositeImage.createGraphics();
-        g.drawImage(terrainImage, 0, height - terrainImage.getHeight(), null);
-        if (overlayImage != null) {
-            g.drawImage(overlayImage, 0, height - overlayImage.getHeight(), null);
-        }
-        if (forestImage != null) {
-            g.drawImage(forestImage, 0, height - forestImage.getHeight(), null);
-        }
-        g.dispose();
-        return compositeImage;
-    }
 
     // Unit image handling
     
@@ -1473,7 +1415,7 @@ public final class ImageLibrary {
                                                   float scale) {
         final String key = getUnitTypeImageKey(unitType, null, roleId,
                                                nativeEthnicity);
-        return getScaledImage(key, scale, grayscale);
+        return getScaledImageInternal(key, scale, grayscale);
     }
 
     private static BufferedImage getUnitTypeImage(UnitType unitType,
@@ -1488,7 +1430,7 @@ public final class ImageLibrary {
                                                   Dimension size) {
         final String key = getUnitTypeImageKey(unitType, null, roleId,
                                                nativeEthnicity);
-        return getSizedImage(key, size, false);
+        return getSizedImageInternal(key, size, false);
     }
 
     private static BufferedImage getUnitTypeImage(UnitType unitType,

@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -590,7 +590,8 @@ public class BuildQueuePanel extends FreeColPanel implements ItemListener {
 
         // Create Font choice
         Font fontSubHead = FontLibrary.createFont(FontLibrary.FontType.NORMAL,
-            FontLibrary.FontSize.SMALLER, Font.BOLD, getGUI().getMapScale());
+                FontLibrary.FontSize.SMALLER, Font.BOLD,
+                getImageLibrary().getScaleFactor());
         
         // Create the components
         JLabel header = Utility.localizedHeaderLabel(

@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -34,6 +34,7 @@ import java.util.stream.Stream;
 
 import javax.xml.stream.XMLStreamException;
 
+import net.sf.freecol.client.gui.Canvas;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
@@ -1589,10 +1590,7 @@ public class IndianSettlement extends Settlement implements TradeLocation {
         final boolean full = xw.validFor(getOwner());
         
         // Delegated from Settlement
-        String name = getName();
-        if (name != null) {
-            xw.writeAttribute(NAME_TAG, name);
-        }
+        xw.writeAttribute(NAME_TAG, getName());
 
         if (full) { // Server internal fields only
             xw.writeAttribute(LAST_TRIBUTE_TAG, lastTribute);

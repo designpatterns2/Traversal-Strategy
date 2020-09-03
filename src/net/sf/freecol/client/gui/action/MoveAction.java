@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -24,7 +24,6 @@ import java.awt.event.ActionEvent;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.common.model.Direction;
-import net.sf.freecol.common.model.Tile;
 
 
 /**
@@ -70,18 +69,13 @@ public class MoveAction extends MapboardAction {
      * {@inheritDoc}
      */
     @Override
-    public void actionPerformed(ActionEvent ae) {
-        final GUI gui = getGUI();
-        switch (gui.getViewMode()) {
+    public void actionPerformed(ActionEvent ae) { 
+        switch (getGUI().getViewMode()) {
         case MOVE_UNITS:
-            igc().moveUnit(gui.getActiveUnit(), direction);
+            igc().moveUnit(getGUI().getActiveUnit(), direction);
             break;
         case TERRAIN:
-            final Tile tile = gui.getSelectedTile();
-            if (tile != null) {
-                final Tile newTile = tile.getNeighbourOrNull(direction);
-                if (newTile != null) gui.changeView(newTile);
-            }
+            igc().moveTileCursor(direction);
             break;
         default:
             break;

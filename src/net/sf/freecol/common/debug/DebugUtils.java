@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -379,7 +379,11 @@ public class DebugUtils {
         // Note "game" is no longer valid after reconnect.
         Unit unit = freeColClient.getGame()
             .getFreeColGameObject(sUnit.getId(), Unit.class);
-        if (unit != null) gui.changeView(unit);
+        if (unit != null) {
+            gui.changeView(unit);
+            gui.refresh();
+            gui.resetMenuBar();
+        }
     }
 
     /**
@@ -446,7 +450,7 @@ public class DebugUtils {
             = transform(colony.getDisasterChoices(), alwaysTrue(), mapper,
                         Comparator.naturalOrder());
         if (disasters.isEmpty()) {
-            gui.showErrorPanel(StringTemplate
+            gui.showErrorMessage(StringTemplate
                 .template("error.disasterNotAvailable")
                 .addName("%colony%", colony.getName()));
             return;
@@ -463,7 +467,7 @@ public class DebugUtils {
             .getDisaster(disaster.getId());
         if (server.getInGameController().debugApplyDisaster(sColony, sDisaster)
             <= 0) {
-            gui.showErrorPanel(StringTemplate
+            gui.showErrorMessage(StringTemplate
                 .template("error.disasterAvoided")
                 .addName("%colony%", colony.getName())
                 .addNamed("%disaster%", disaster));
@@ -505,6 +509,8 @@ public class DebugUtils {
             && gui.getActiveUnit().getOwner() != myPlayer) {
             freeColClient.getInGameController().nextActiveUnit();
         }
+        gui.refresh();
+        gui.resetMenuBar();
     }
 
     /**
@@ -539,6 +545,8 @@ public class DebugUtils {
 
         Player myPlayer = freeColClient.getMyPlayer();
         if (myPlayer.owns(unit)) gui.changeView(unit);
+        gui.refresh();
+        gui.resetMenuBar();
     }
 
     /**
@@ -693,7 +701,7 @@ public class DebugUtils {
         final AIMain aiMain = server.getAIMain();
         final AIColony aiColony = aiMain.getAIColony(colony);
         if (aiColony == null) {
-            freeColClient.getGUI().showErrorPanel(StringTemplate
+            freeColClient.getGUI().showErrorMessage(StringTemplate
                 .template("error.notAIColony")
                 .addName("%colony%", colony.getName()));
         } else {
@@ -901,24 +909,27 @@ public class DebugUtils {
      */
     public static void resetMoves(final FreeColClient freeColClient,
                                   List<Unit> units) {
-        if (units.isEmpty()) return;
         final FreeColServer server = freeColClient.getFreeColServer();
         final Game sGame = server.getGame();
         final GUI gui = freeColClient.getGUI();
 
+        boolean first = true;
         for (Unit u : units) {
             Unit su = sGame.getFreeColGameObject(u.getId(), Unit.class);
             u.setMovesLeft(u.getInitialMovesLeft());
             su.setMovesLeft(su.getInitialMovesLeft());
+            if (first) {
+                gui.changeView(u);
+                first = false;
+            }
             for (Unit u2 : u.getUnitList()) {
                 Unit su2 = sGame.getFreeColGameObject(u2.getId(), Unit.class);
                 u2.setMovesLeft(u2.getInitialMovesLeft());
                 su2.setMovesLeft(su2.getInitialMovesLeft());
             }
         }
-        Unit unit = units.get(0);
-        gui.changeView(); // force active unit update
-        gui.changeView(unit);
+        gui.refresh();
+        gui.resetMenuBar();
     }
 
     /**
@@ -997,13 +1008,12 @@ public class DebugUtils {
     /**
      * Set COMMS logging.
      *
-     * @param freeColClient The {@code FreeColClient} for the game.
      * @param log If true, enable COMMS logging.
      */
     public static void setCommsLogging(final FreeColClient freeColClient,
                                        boolean log) {
         final FreeColServer server = freeColClient.getFreeColServer();
-        if (server != null) server.getServer().setCommsLogging(log);
+        if (server != null) server.getServer().setLogging(log);
     }
     
     /**

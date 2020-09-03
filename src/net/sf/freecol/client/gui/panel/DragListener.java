@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -123,7 +123,7 @@ public final class DragListener extends MouseAdapter {
             final GUI gui = this.freeColClient.getGUI();
             if ((gui.isWindowed() && windows)
                 || (small && !gui.isWindowed())) {
-                gui.showPopupMenu(menu, menu.getLocation().x, 0);
+                menu.show(gui.getCanvas(), menu.getLocation().x, 0);
             } else {
                 menu.show(comp, e.getX(), e.getY());
             }

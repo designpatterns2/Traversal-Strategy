@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -900,8 +900,7 @@ public final class QuickActionMenu extends JPopupMenu {
      */
     private void addTileItem(final Tile tile) {
         if (tile != null) {
-            String msg = Messages.message(tile.getLabel());
-            JMenuItem menuItem = new JMenuItem(msg);
+            JMenuItem menuItem = new JMenuItem(Messages.getName(tile));
             menuItem.addActionListener((ActionEvent ae) -> {
                     gui.showTilePanel(tile);
             });

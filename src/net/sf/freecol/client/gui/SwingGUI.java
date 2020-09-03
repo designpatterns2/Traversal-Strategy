@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -19,16 +19,23 @@
 
 package net.sf.freecol.client.gui;
 
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.DisplayMode;
 import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.HeadlessException;
+import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.awt.image.BufferedImage;
 import java.beans.PropertyChangeEvent;
 import java.io.File;
@@ -36,44 +43,36 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Locale;
 import java.util.logging.Level;
-import java.util.Map;
 
-import javax.swing.filechooser.FileFilter;
+import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
-import javax.swing.JPopupMenu;
-import javax.swing.SwingUtilities;
+import javax.swing.JWindow;
+import javax.swing.Timer;
 
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.control.MapTransform;
-import net.sf.freecol.client.gui.animation.Animation;
+import net.sf.freecol.client.gui.ImageLibrary;
 import net.sf.freecol.client.gui.animation.Animations;
-// Special dialogs and panels
-import net.sf.freecol.client.gui.dialog.ClientOptionsDialog;
+import net.sf.freecol.client.gui.dialog.CaptureGoodsDialog;
 import net.sf.freecol.client.gui.dialog.FreeColDialog;
 import net.sf.freecol.client.gui.dialog.Parameters;
+import net.sf.freecol.client.gui.panel.BuildQueuePanel;
 import net.sf.freecol.client.gui.panel.ColonyPanel;
 import net.sf.freecol.client.gui.panel.ColorChooserPanel;
-import net.sf.freecol.client.gui.panel.FreeColPanel;
-import net.sf.freecol.client.gui.panel.MapControls;
+import net.sf.freecol.client.gui.panel.CornerMapControls;
 import net.sf.freecol.client.gui.panel.report.LabourData.UnitData;
 import net.sf.freecol.client.gui.panel.InformationPanel;
-import net.sf.freecol.client.gui.panel.PurchasePanel;
-import net.sf.freecol.client.gui.panel.RecruitPanel;
-import net.sf.freecol.client.gui.panel.StartGamePanel;
-import net.sf.freecol.client.gui.panel.StatusPanel;
+import net.sf.freecol.client.gui.panel.MapControls;
 import net.sf.freecol.client.gui.panel.TradeRouteInputPanel;
-import net.sf.freecol.client.gui.panel.TrainPanel;
-
 import net.sf.freecol.client.gui.panel.Utility;
 import net.sf.freecol.client.gui.plaf.FreeColLookAndFeel;
-
+import net.sf.freecol.client.gui.video.VideoComponent;
+import net.sf.freecol.client.gui.video.VideoListener;
 import net.sf.freecol.common.FreeColException;
-import net.sf.freecol.common.debug.DebugUtils;
 import net.sf.freecol.common.i18n.Messages;
-import net.sf.freecol.common.io.FreeColDataFile;
 import net.sf.freecol.common.metaserver.ServerInfo;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Constants.IndianDemandAction;
@@ -88,6 +87,7 @@ import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.HighScore;
 import net.sf.freecol.common.model.IndianSettlement;
 import net.sf.freecol.common.model.Location;
+import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.ModelMessage;
 import net.sf.freecol.common.model.Monarch.MonarchAction;
 import net.sf.freecol.common.model.Nation;
@@ -108,10 +108,9 @@ import net.sf.freecol.common.option.LanguageOption;
 import net.sf.freecol.common.option.LanguageOption.Language;
 import net.sf.freecol.common.option.Option;
 import net.sf.freecol.common.option.OptionGroup;
-import static net.sf.freecol.common.util.CollectionUtils.*;
+import net.sf.freecol.common.resources.Video;
 import net.sf.freecol.common.util.Introspector;
 import static net.sf.freecol.common.util.StringUtils.*;
-import net.sf.freecol.common.util.Utils;
 
 
 /**
@@ -119,19 +118,6 @@ import net.sf.freecol.common.util.Utils;
  */
 public class SwingGUI extends GUI {
 
-    /** European subpanel classes. */
-    private static final List<Class<? extends FreeColPanel>> EUROPE_CLASSES
-        = makeUnmodifiableList(RecruitPanel.class,
-                               PurchasePanel.class,
-                               TrainPanel.class);
-
-    /** Number of pixels that must be moved before a goto is enabled. */
-    private static final int DRAG_THRESHOLD = 16;
-
-    /** The generally use scaled image library. */
-    private ImageLibrary imageLibrary;
-    
-    /** The graphics device to display to. */
     private final GraphicsDevice graphicsDevice;
 
     /**
@@ -147,20 +133,12 @@ public class SwingGUI extends GUI {
      */
     private MapViewer mapViewer;
 
-    /** The various sorts of map controls. */
-    private MapControls mapControls;
-
     /** The canvas that implements much of the functionality. */
     private Canvas canvas;
 
-    /** The widgets wrapper that handles specific panels and dialogs. */
-    private Widgets widgets;
+    private MapControls mapControls;
 
-    /** Where the map was drag-clicked. */
-    private Point dragPoint;
-
-    /** The splash screen. */
-    private SplashScreen splash;
+    private JWindow splash;
 
 
     /**
@@ -171,20 +149,8 @@ public class SwingGUI extends GUI {
      */
     public SwingGUI(FreeColClient freeColClient, float scaleFactor) {
         super(freeColClient, scaleFactor);
-
-        this.imageLibrary = new ImageLibrary(scaleFactor);
-        this.graphicsDevice = Utils.getGoodGraphicsDevice();
-        if (this.graphicsDevice == null) {
-            FreeCol.fatal(logger, "Could not find a GraphicsDevice!");
-        }
-        this.tileViewer = new TileViewer(freeColClient, new ImageLibrary());
-        // Defer remaining initializations, possibly to startGUI
-        this.mapViewer = null;
-        this.mapControls = null;
-        this.canvas = null;
-        this.widgets = null;
-        this.dragPoint = null;
-        this.splash = null;
+        
+        this.graphicsDevice = getGoodGraphicsDevice();
         logger.info("GUI constructed using scale factor " + scaleFactor);
     }
 
@@ -192,105 +158,24 @@ public class SwingGUI extends GUI {
     // Internals
 
     /**
-     * Perform a single animation.
+     * Get a good screen device for starting FreeCol.
      *
-     * @param a The {@code Animation} to perform.
+     * @return A screen device, or null if none available
+     *     (as in headless mode).
      */
-    private void animate(Animation a) {
-        // Insist that tiles are visible (assume changeFocus centers
-        // sufficiently well that if one is good the rest will be)
-        final List<Tile> tiles = a.getTiles();
-        for (Tile t : tiles) {
-            if (!this.mapViewer.onScreen(t)) {
-                this.mapViewer.changeFocus(t);
-                break;
-            }
-        }
-        // Always completely update the screen before starting the animation
-        // as focus may have changed either here or in animations()
-        paintImmediately();
+    private static GraphicsDevice getGoodGraphicsDevice() {
+        try {
+            return MouseInfo.getPointerInfo().getDevice();
+        } catch (HeadlessException he) {}
 
-        // Calculate the union of the bounds for all the tiles in the
-        // animation, this is the area that will need to be repainted
-        // as the animation progresses 
-        Rectangle bounds = null;
-        for (Tile t : tiles) {
-            Rectangle r = this.mapViewer.calculateTileBounds(t);
-            bounds = (bounds == null) ? r : bounds.union(r);
-        }
-        // Get the unit label, add to canvas if not already there, and
-        // update the animation with the locations for the label for each
-        // of the animation's tiles
-        final Unit unit = a.getUnit();
-        boolean newLabel = !this.mapViewer.isOutForAnimation(unit);
-        JLabel unitLabel = this.mapViewer.enterUnitOutForAnimation(unit);
-        List<Point> points = transform(tiles, alwaysTrue(),
-            (t) -> this.mapViewer.getAnimationPosition(unitLabel, t));
-        a.setPoints(points);
-        unitLabel.setLocation(points.get(0)); // set location before adding
-        if (newLabel) this.canvas.animationLabel(unitLabel, true);
-            
-        // Define a callback to wrap Canvas.paintImmediately(Rectangle)
-        final Canvas can = this.canvas;
-        final Rectangle aBounds = bounds;
-        final Animations.Procedure painter = new Animations.Procedure() {
-                public void execute() {
-                    can.paintImmediately(aBounds);
-                }
-            };
+        try {
+            final GraphicsEnvironment lge
+                = GraphicsEnvironment.getLocalGraphicsEnvironment();
+            return lge.getDefaultScreenDevice();
+        } catch (HeadlessException he) {}
 
-        try { // Delegate to the animation
-            a.executeWithLabel(unitLabel, painter);
-            
-        } finally { // Make sure we release the label again
-            this.mapViewer.releaseUnitOutForAnimation(unit);
-            
-            if (!this.mapViewer.isOutForAnimation(unit)) {
-                this.canvas.animationLabel(unitLabel, false);
-            }
-        }
-    }
-    
-    /**
-     * Perform some animations.
-     *
-     * @param animations The {@code Animation}s to perform.
-     */
-    private void animations(final List<Animation> animations) {
-        if (animations.isEmpty()) return;
-
-        // Special case for first animation, which should respect the
-        // ALWAYS_CENTER option.  We assume the others remain sufficiently
-        // visible because calling paintImmediately every time would be slow
-        final boolean center = getClientOptions()
-            .getBoolean(ClientOptions.ALWAYS_CENTER);
-        Tile first = animations.get(0).getTiles().get(0);
-        if (center && first != getFocus()) {
-            this.mapViewer.changeFocus(first);
-        }
-           
-        invokeNowOrWait(() -> {
-                for (Animation a : animations) animate(a);
-            });
-    }
-
-    /**
-     * Gets the point at which the map was clicked for a drag.
-     *
-     * @return The Point where the mouse was initially clicked.
-     */
-    private Point getDragPoint() {
-        return this.dragPoint;
-    }
-
-    /**
-     * Sets the point at which the map was clicked for a drag.
-     *
-     * @param x The mouse x position.
-     * @param y The mouse y position.
-     */
-    private void setDragPoint(int x, int y) {
-        this.dragPoint = new Point(x, y);
+        FreeCol.fatal(logger, "Could not find a GraphicsDevice!");
+        return null;
     }
 
     /**
@@ -348,6 +233,9 @@ public class SwingGUI extends GUI {
             && (oldFocus == null || refocus
                 || !this.mapViewer.onScreen(newTile));
         if (refocus) setFocus(newTile);
+
+        // System.err.println("CST " + newTile + " " + (newTile != oldTile) + " " + refocus);
+
         if (newTile == oldTile) return false;
         this.mapViewer.setSelectedTile(newTile);
         if (oldTile != null) refreshTile(oldTile);
@@ -355,21 +243,11 @@ public class SwingGUI extends GUI {
         return true;
     }
 
-    /**
-     * Finish a view mode change.
-     *
-     * @param update Update the map controls if true.
-     */
-    private void changeDone(boolean update) {
-        if (getViewMode() == ViewMode.MOVE_UNITS
-            && getActiveUnit() != null) {
-            this.mapViewer.startCursorBlinking();
-        } else {
-            this.mapViewer.stopCursorBlinking();
-        }
-            
-        if (update) updateMapControls();
-        updateMenuBar();
+    // TODO
+    private void setFocusImmediately(Tile tileToFocus) {
+        this.mapViewer.changeFocus(tileToFocus);
+        Dimension size = canvas.getSize();
+        canvas.paintImmediately(0, 0, size.width, size.height);
     }
 
     /**
@@ -383,7 +261,7 @@ public class SwingGUI extends GUI {
         PathNode path = null;
         if (destination != null
             && !((FreeColGameObject)destination).isDisposed()
-            && !active.isAtLocation(destination)) {
+            && !Map.isSameLocation(active.getLocation(), destination)) {
             try {
                 path = active.findPath(destination);
             } catch (Exception e) {
@@ -395,21 +273,6 @@ public class SwingGUI extends GUI {
     }
 
     /**
-     * Is mouse movement differnce above the drag threshold?
-     *
-     * @param x The new mouse x position.
-     * @param y The new mouse y position.
-     * @return True if the mouse has been dragged.
-     */
-    public boolean isDrag(int x, int y) {
-        final Point drag = getDragPoint();
-        if (drag == null) return false;
-        int deltaX = Math.abs(x - drag.x);
-        int deltaY = Math.abs(y - drag.y);
-        return deltaX >= DRAG_THRESHOLD || deltaY >= DRAG_THRESHOLD;
-    }
-
-    /**
      * Update the current goto to a given tile.
      *
      * @param tile The new goto {@code Tile}.
@@ -418,49 +281,11 @@ public class SwingGUI extends GUI {
         final Unit unit = getActiveUnit();
         if (tile == null || unit == null) {
             clearGotoPath();
-        } else if (this.canvas.isGotoStarted()) {
-            // Do nothing if the tile has not changed.
-            PathNode oldPath = this.mapViewer.getGotoPath();
-            Tile lastTile = (oldPath == null) ? null
-                : oldPath.getLastNode().getTile();
-            if (lastTile == tile) return;
-
-            // Do not show a path if it will be invalid, avoiding calling
-            // the expensive path finder if possible.
-            PathNode newPath = (unit.getTile() == tile
-                || !tile.isExplored()
-                || !unit.getSimpleMoveType(tile).isLegal()) ? null
-                : unit.findPath(tile);
-            this.mapViewer.changeGotoPath(newPath);
+        } else {
+            canvas.changeGoto(unit, tile);
         }
     }
 
-    /**
-     * Paint the whole canvas now.
-     */
-    public void paintImmediately() {
-        this.canvas.paintImmediately(this.canvas.getBounds());
-    }
-
-    /**
-     * Schedule a tile to be repainted.
-     *
-     * @param tile The {@code tile} to paint.
-     */
-    private void refreshTile(Tile tile) {
-        if (tile != null) {
-            this.canvas.repaint(this.mapViewer.calculateTileBounds(tile));
-        }
-    }
-
-    /**
-     * Reset the map zoom and refresh the canvas.
-     */
-    private void resetMapZoom() {
-        this.mapViewer.resetMapScale();
-        refresh();
-    }
-   
 
     // Implement GUI
 
@@ -470,8 +295,8 @@ public class SwingGUI extends GUI {
      * {@inheritDoc}
      */
     @Override
-    public ImageLibrary getImageLibrary() {
-        return this.imageLibrary;
+    public Canvas getCanvas() {
+        return this.canvas;
     }
 
     /**
@@ -479,7 +304,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public ImageLibrary getTileImageLibrary() {
-        return this.tileViewer.getImageLibrary();
+        return tileViewer.getImageLibrary();
     }
 
     /**
@@ -491,37 +316,6 @@ public class SwingGUI extends GUI {
     }
 
 
-    // Invocation methods
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void invokeNowOrLater(Runnable runnable) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            runnable.run();
-        } else {
-            SwingUtilities.invokeLater(runnable);
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void invokeNowOrWait(Runnable runnable) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            runnable.run();
-        } else {
-            try {
-                SwingUtilities.invokeAndWait(runnable);
-            } catch (Exception ex) {
-                logger.log(Level.WARNING, "Client GUI interaction", ex);
-            }
-        }
-    }
-
-
     // Initialization and teardown
 
     /**
@@ -529,7 +323,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void changeWindowedMode() {
-        this.canvas.toggleFrame();
+        canvas.changeWindowedMode();
     }
 
     /**
@@ -537,14 +331,21 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void displaySplashScreen(final InputStream splashStream) {
-        if (splashStream != null) {
-            try {
-                this.splash = new SplashScreen(this.graphicsDevice,
-                                               splashStream);
-            } catch (Exception e) {
-                logger.log(Level.WARNING, "Splash screen failure", e);
-            }
-            this.splash.setVisible(true);
+        splash = null;
+        if (splashStream == null) return;
+        try {
+            BufferedImage im = ImageIO.read(splashStream);
+            splash = new JWindow(graphicsDevice.getDefaultConfiguration());
+            splash.getContentPane().add(new JLabel(new ImageIcon(im)));
+            splash.pack();
+            Point start = splash.getLocation();
+            DisplayMode dm = graphicsDevice.getDisplayMode();
+            splash.setLocation(start.x + dm.getWidth()/2 - splash.getWidth() / 2,
+                start.y + dm.getHeight()/2 - splash.getHeight() / 2);
+            splash.setVisible(true);
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Splash fail", e);
+            splash = null;
         }
     }
 
@@ -553,9 +354,10 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void hideSplashScreen() {
-        if (this.splash != null) {
-            this.splash.setVisible(false);
-            this.splash = null;
+        if (splash != null) {
+            splash.setVisible(false);
+            splash.dispose();
+            splash = null;
         }
     }
 
@@ -566,11 +368,8 @@ public class SwingGUI extends GUI {
     public void installLookAndFeel(String fontName) throws FreeColException {
         FreeColLookAndFeel fclaf = new FreeColLookAndFeel();
         FreeColLookAndFeel.install(fclaf);
-        Font font = FontLibrary.createMainFont(fontName, getMapScale());
-        if (font == null) {
-            throw new FreeColException("Unable to create main font: "
-                + fontName);
-        }
+        Font font = FontLibrary.createMainFont(
+            fontName, imageLibrary.getScaleFactor());
         FreeColLookAndFeel.installFont(font);
         Utility.initStyleContext(font);
     }
@@ -579,9 +378,9 @@ public class SwingGUI extends GUI {
      * {@inheritDoc}
      */
     @Override
-    public void quitGUI() {
-        if (this.canvas != null) {
-            this.canvas.quit();
+    public void quit() {
+        if (canvas != null) {
+            canvas.quit();
         }
     }
 
@@ -589,31 +388,23 @@ public class SwingGUI extends GUI {
      * {@inheritDoc}
      */
     @Override
-    public void reconnectGUI(Unit active, Tile tile) {
-        this.canvas.requestFocusInWindow();
-        this.canvas.initializeInGame();
+    public void reconnect(Unit active, Tile tile) {
+        canvas.setupMouseListeners();
+        requestFocusInWindow();
+        canvas.initializeInGame();
         enableMapControls(getClientOptions()
             .getBoolean(ClientOptions.DISPLAY_MAP_CONTROLS));
         closeMenus();
         clearGotoPath();
-        this.canvas.resetMenuBar();
+        resetMenuBar();
         resetMapZoom(); // This should refresh the map
-        // Update the view, somehow.  Try really hard to find a tile
-        // to focus on
         if (active != null) {
             changeView(active);
-            if (tile == null) {
-                tile = active.getTile();
-                if (tile == null) {
-                    tile = active.getOwner().getFallbackTile();
-                }
-            }
         } else if (tile != null) {
             changeView(tile);
         } else {
             changeView((Unit)null);
         }
-        this.mapViewer.changeFocus(tile);
     }
         
     /**
@@ -621,19 +412,98 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void removeInGameComponents() {
-        changeActiveUnit(null);
-        changeSelectedTile(null, false);
-        this.canvas.removeInGameComponents();
+        canvas.removeInGameComponents();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void showOpeningVideo(final String userMsg, Runnable callback) {
-        final boolean play = getFreeColClient().getSoundController()
-            .canPlaySound();
-        this.canvas.playVideo("video.opening", !play, callback);
+    public void showOpeningVideo(final String userMsg) {
+        canvas.closeMenus();
+        final Video video = ImageLibrary.getVideo("video.opening");
+        boolean muteAudio = !getSoundController().canPlaySound();
+        final VideoComponent vp = new VideoComponent(video, muteAudio);
+
+        final class AbortListener implements ActionListener, KeyListener,
+            MouseListener, VideoListener {
+
+            private Timer t = null;
+
+            @Override
+            public void keyPressed(KeyEvent e) {
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e1) {
+                execute();
+            }
+
+            @Override
+            public void keyTyped(KeyEvent e2) {
+            }
+
+            @Override
+            public void mouseClicked(MouseEvent e3) {
+                execute();
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e4) {
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e5) {
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e6) {
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e7) {
+            }
+
+            @Override
+            public void stopped() {
+                execute();
+            }
+
+            @Override
+            public void actionPerformed(ActionEvent ae8) {
+                execute();
+            }
+
+            private void setTimer(Timer t1) {
+                this.t = t1;
+            }
+
+            private void execute() {
+                canvas.removeKeyListener(this);
+                canvas.removeMouseListener(this);
+                vp.removeMouseListener(this);
+                //vp.removeVideoListener(this);
+                vp.stop();
+                canvas.remove(vp);
+                if (t != null) {
+                    t.stop();
+                }
+                playSound("sound.intro.general");
+                showMainPanel(userMsg);
+            }
+        }
+        AbortListener l = new AbortListener();
+        vp.addMouseListener(l);
+        //vp.addVideoListener(l);
+        canvas.showVideoComponent(vp, l, l);
+        vp.play();
+        // Cortado applet is failing to quit when finished, make sure it
+        // eventually gets kicked.  Change the magic number if we
+        // change the opening video length.
+        Timer t2 = new Timer(80000, l);
+        l.setTimer(t2);
+        t2.setRepeats(false);
+        t2.start();
     }
 
     /**
@@ -641,16 +511,11 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void startGUI(final Dimension desiredWindowSize) {
-        final FreeColClient fcc = getFreeColClient();
         final ClientOptions opts = getClientOptions();
-        final ActionListener al = (ActionEvent ae) ->
-            this.refreshTile(this.mapViewer.getActiveTile());
-        this.mapViewer = new MapViewer(fcc, al);
-        this.mapControls = MapControls.newInstance(fcc);
-        this.canvas = new Canvas(getFreeColClient(), this.graphicsDevice,
-                                 desiredWindowSize, this.mapViewer,
-                                 this.mapControls);
-        this.widgets = new Widgets(fcc, this.canvas);
+        this.mapViewer = new MapViewer(getFreeColClient());
+        this.canvas = new Canvas(getFreeColClient(), graphicsDevice, this,
+                                 desiredWindowSize, this.mapViewer);
+        this.tileViewer = new TileViewer(getFreeColClient());
 
         // Now that there is a canvas, prepare for language changes.
         opts.getOption(ClientOptions.LANGUAGE, LanguageOption.class)
@@ -671,6 +536,7 @@ public class SwingGUI extends GUI {
         // No longer doing anything special for pmoffscreen et al as
         // changing these in-game does not change the now initialized
         // graphics pipeline.
+
         logger.info("GUI started.");
     }
 
@@ -679,9 +545,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void startMapEditorGUI() {
-        resetMapZoom(); // Reset zoom to the default
-        this.canvas.startMapEditorGUI();
-        this.canvas.showMapEditorTransformPanel();
+        canvas.startMapEditorGUI();
     }
 
 
@@ -694,10 +558,17 @@ public class SwingGUI extends GUI {
     public void animateUnitAttack(Unit attacker, Unit defender,
                                   Tile attackerTile, Tile defenderTile,
                                   boolean success) {
-        animations(Animations.unitAttack(getFreeColClient(),
-                                         attacker, defender,
-                                         attackerTile, defenderTile,
-                                         success, getMapScale()));
+        // Note: we used to focus the map on the unit even when
+        // animation is off as long as the center-active-unit option
+        // was set.  However IR#115 requested that if animation is off
+        // that we display nothing so as to speed up the other player
+        // moves as much as possible.
+        final FreeColClient fcc = getFreeColClient();
+        if (fcc.getAnimationSpeed(attacker.getOwner()) <= 0
+            && fcc.getAnimationSpeed(defender.getOwner()) <= 0) return;
+
+        Animations.unitAttack(fcc, attacker, defender,
+                              attackerTile, defenderTile, success);
     }
 
     /**
@@ -705,8 +576,61 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void animateUnitMove(Unit unit, Tile srcTile, Tile dstTile) {
-        animations(Animations.unitMove(getFreeColClient(),
-                                       unit, srcTile, dstTile, getMapScale()));
+        // Note: we used to focus the map on the unit even when
+        // animation is off as long as the center-active-unit option
+        // was set.  However IR#115 requested that if animation is off
+        // that we display nothing so as to speed up the other player
+        // moves as much as possible.
+        final FreeColClient fcc = getFreeColClient();
+        if (fcc.getAnimationSpeed(unit.getOwner()) <= 0) return;
+
+        Animations.unitMove(fcc, unit, srcTile, dstTile);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void executeWithUnitOutForAnimation(Unit unit, Tile sourceTile,
+                                               OutForAnimationCallback r) {
+        invokeNowOrWait(() -> {
+                requireFocus(sourceTile);
+                paintImmediately();
+                this.mapViewer.executeWithUnitOutForAnimation(unit, sourceTile, r);
+            });
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Point getAnimationPosition(int labelWidth,int labelHeight,
+                                      Point tileP) {
+        return this.mapViewer.calculateUnitLabelPositionInTile(labelWidth, labelHeight, tileP);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public float getAnimationScale() {
+        return this.mapViewer.getImageLibrary().getScaleFactor();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Rectangle getAnimationTileBounds(Tile tile) {
+        return this.mapViewer.calculateTileBounds(tile);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Point getAnimationTilePosition(Tile tile) {
+        return this.mapViewer.calculateTilePosition(tile, false);
     }
 
 
@@ -716,9 +640,18 @@ public class SwingGUI extends GUI {
      * {@inheritDoc}
      */
     @Override
+    public boolean confirm(String textKey, String okKey, String cancelKey) {
+        return canvas.showConfirmDialog(null, StringTemplate.key(textKey),
+                                        null, okKey, cancelKey);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public boolean confirm(Tile tile, StringTemplate tmpl, ImageIcon icon,
                            String okKey, String cancelKey) {
-        return this.widgets.confirm(tile, tmpl, icon, okKey, cancelKey);
+        return canvas.showConfirmDialog(tile, tmpl, icon, okKey, cancelKey);
     }
 
     /**
@@ -727,7 +660,7 @@ public class SwingGUI extends GUI {
     @Override
     protected <T> T getChoice(Tile tile, StringTemplate tmpl, ImageIcon icon,
                               String cancelKey, List<ChoiceItem<T>> choices) {
-        return this.widgets.getChoice(tile, tmpl, icon, cancelKey, choices);
+        return canvas.showChoiceDialog(tile, tmpl, icon, cancelKey, choices);
     }
 
     /**
@@ -736,7 +669,8 @@ public class SwingGUI extends GUI {
     @Override
     public String getInput(Tile tile, StringTemplate tmpl, String defaultValue,
                            String okKey, String cancelKey) {
-        return this.widgets.getInput(tile, tmpl, defaultValue, okKey, cancelKey);
+        return canvas.showInputDialog(tile, tmpl, defaultValue,
+                                      okKey, cancelKey);
     }
 
 
@@ -754,119 +688,81 @@ public class SwingGUI extends GUI {
      * {@inheritDoc}
      */
     @Override
+    public boolean requestFocusForSubPanel() {
+        return canvas.getShowingSubPanel().requestFocusInWindow();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean requestFocusInWindow() {
+        return canvas.requestFocusInWindow();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean requireFocus(Tile tile) {
+        // Account for the ALWAYS_CENTER client option.
+        final boolean required = getClientOptions()
+            .getBoolean(ClientOptions.ALWAYS_CENTER);
+        if ((required && tile != getFocus())
+            || !this.mapViewer.onScreen(tile)) {
+            setFocusImmediately(tile);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void setFocus(Tile tileToFocus) {
         this.mapViewer.changeFocus(tileToFocus);
-        refresh();
+        canvas.refresh();
     }
 
 
-    // MapControls
+    // General GUI manipulation
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public boolean canZoomInMapControls() {
-        if (this.mapControls == null) return false;
-        return this.mapControls.canZoomInMapControls();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean canZoomOutMapControls() {
-        if (this.mapControls == null) return false;
-        return this.mapControls.canZoomOutMapControls();
+    public void paintImmediately() {
+        paintImmediately(canvas.getBounds());
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void enableMapControls(boolean enable) {
-        if (this.mapControls == null) return;
-        if (enable) {
-            this.canvas.addMapControls();
-        } else {
-            this.canvas.removeMapControls();
+    public void paintImmediately(Rectangle rectangle) {
+        canvas.paintImmediately(rectangle);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void refresh() {
+        this.mapViewer.forceReposition();
+        canvas.refresh();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void refreshTile(Tile tile) {
+        if (tile.getX() >= 0 && tile.getY() >= 0) {
+            canvas.repaint(this.mapViewer.calculateTileBounds(tile));
         }
-        updateMapControls();
     }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void miniMapToggleViewControls() {
-        if (this.mapControls == null) return;
-        this.mapControls.toggleView();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void miniMapToggleFogOfWarControls() {
-        if (this.mapControls == null) return;
-        this.mapControls.toggleFogOfWar();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateMapControls() {
-        if (this.mapControls == null) return;
-        this.mapControls.update(getViewMode(), getActiveUnit(),
-                                getSelectedTile());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void zoomInMapControls() {
-        if (this.mapControls == null) return;
-        this.mapControls.zoomIn();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void zoomOutMapControls() {
-        if (this.mapControls == null) return;
-        this.mapControls.zoomOut();
-    }
-
-
-    // Menu handling
     
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void closeMenus() {
-        this.canvas.closeMenus();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateMenuBar() {
-        this.canvas.updateMenuBar();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void showPopupMenu(JPopupMenu menu, int x, int y) {
-        menu.show(this.canvas, x, y);
-    }
-
 
     // Path handling
 
@@ -887,18 +783,17 @@ public class SwingGUI extends GUI {
         if (unit == null) return;
 
         // Enter "goto mode" if not already activated; otherwise cancel it
-        if (this.canvas.isGotoStarted()) {
+        if (canvas.isGotoStarted()) {
             clearGotoPath();
         } else {
-            this.canvas.startGoto();
-            
+            canvas.startGoto();
+
             // Draw the path to the current mouse position, if the
             // mouse is over the screen; see also
             // CanvasMouseMotionListener.
-            Point pt = this.canvas.getMousePosition();
+            Point pt = canvas.getMousePosition();
             updateGotoTile((pt == null) ? null
-                : tileAt(pt.x, pt.y));
-            refresh();
+                : canvas.convertToMapTile(pt.x, pt.y));
         }
     }
 
@@ -907,9 +802,8 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void clearGotoPath() {
-        this.canvas.stopGoto();
+        canvas.stopGoto();
         updateUnitPath();
-        refresh();
     }
 
     /**
@@ -917,7 +811,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public boolean isGotoStarted() {
-        return this.canvas.isGotoStarted();
+        return canvas.isGotoStarted();
     }
 
     /**
@@ -925,18 +819,17 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void performGoto(Tile tile) {
-        if (this.canvas.isGotoStarted()) this.canvas.stopGoto();
+        if (canvas.isGotoStarted()) canvas.stopGoto();
 
         final Unit active = getActiveUnit();
-        if (active != null) {
-            if (tile != null && active.getTile() != tile) {
-                this.canvas.startGoto();
-                updateGotoTile(tile);
-                traverseGotoPath();
-            }
-            updateUnitPath();
+        if (active == null) return;
+
+        if (tile != null && active.getTile() != tile) {
+            canvas.startGoto();
+            updateGotoTile(tile);
+            traverseGotoPath();
         }
-        refresh();
+        updateUnitPath();
     }
 
     /**
@@ -944,7 +837,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void performGoto(int x, int y) {
-        performGoto(tileAt(x, y));
+        performGoto(canvas.convertToMapTile(x, y));
     }
 
     /**
@@ -953,9 +846,9 @@ public class SwingGUI extends GUI {
     @Override
     public void traverseGotoPath() {
         final Unit unit = getActiveUnit();
-        if (unit == null || !this.canvas.isGotoStarted()) return;
+        if (unit == null || !canvas.isGotoStarted()) return;
 
-        final PathNode path = this.canvas.stopGoto();
+        final PathNode path = canvas.stopGoto();
         if (path == null) {
             igc().clearGotoOrders(unit);
         } else {
@@ -963,7 +856,6 @@ public class SwingGUI extends GUI {
         }
         // Only update the path if the unit is still active
         if (unit == getActiveUnit()) updateUnitPath();
-        refresh();
     }
 
     /**
@@ -971,13 +863,12 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void updateGoto(int x, int y, boolean start) {
-        if (start && isDrag(x, y)) {
-            this.canvas.startGoto();
+        if (start && canvas.isDrag(x, y)) {
+            canvas.startGoto();
         }
-        if (this.canvas.isGotoStarted()) {
-            updateGotoTile(tileAt(x, y));
+        if (canvas.isGotoStarted()) {
+            updateGotoTile(canvas.convertToMapTile(x, y));
         }
-        refresh();
     }
 
     /**
@@ -985,16 +876,151 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void prepareDrag(int x, int y) {
-        if (this.canvas.isGotoStarted()) {
-            this.canvas.stopGoto();
-            refresh();
-        }
-        setDragPoint(x, y);
-        this.canvas.requestFocus();
+        if (canvas.isGotoStarted()) canvas.stopGoto();
+        canvas.setDragPoint(x, y);
+        canvas.requestFocus();
     }
     
     
+    // MapControls handling
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean canZoomInMapControls() {
+        return mapControls != null && mapControls.canZoomInMapControls();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean canZoomOutMapControls() {
+        return mapControls != null && mapControls.canZoomOutMapControls();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void enableMapControls(boolean enable) {
+        // Always instantiate in game.
+        if (enable && mapControls == null) {
+            String className = getClientOptions().getString(ClientOptions.MAP_CONTROLS);
+            final String panelName = "net.sf.freecol.client.gui.panel."
+                + lastPart(className, ".");
+            try {
+                mapControls = (MapControls)Introspector.instantiate(panelName,
+                    new Class[] { FreeColClient.class },
+                    new Object[] { getFreeColClient() });
+                mapControls.addToComponent(canvas);
+                mapControls.update();
+                logger.info("Instantiated " + panelName);
+            } catch (Introspector.IntrospectorException ie) {
+                logger.log(Level.WARNING, "Failed in make map controls for: "
+                    + panelName, ie);
+            }
+        } else if (!enable && mapControls != null) {
+            mapControls.removeFromComponent(canvas);
+            mapControls = null;
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void miniMapToggleViewControls() {
+        if (mapControls == null) return;
+        mapControls.toggleView();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void miniMapToggleFogOfWarControls() {
+        if (mapControls == null) return;
+        mapControls.toggleFogOfWar();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void updateMapControls() {
+        if (mapControls != null) mapControls.update();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void updateMapControlsInCanvas() {
+        if (mapControls == null) return;
+        mapControls.removeFromComponent(canvas);
+        mapControls.addToComponent(canvas);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void zoomInMapControls() {
+        if (mapControls == null) return;
+        mapControls.zoomIn();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void zoomOutMapControls() {
+        if (mapControls == null) return;
+        mapControls.zoomOut();
+    }
+
+
+    // Menu handling
+    
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void closeMenus() {
+        canvas.closeMenus();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void resetMenuBar() {
+        getFreeColClient().updateActions();
+        canvas.resetMenuBar();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void updateMenuBar() {
+        getFreeColClient().updateActions();
+        canvas.updateMenuBar();
+    }
+
+
     // Tile image manipulation
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public BufferedImage createTileImageWithOverlayAndForest(TileType type,
+                                                             Dimension size) {
+        return tileViewer.createTileImageWithOverlayAndForest(type, size);
+    }
 
     /**
      * {@inheritDoc}
@@ -1053,6 +1079,23 @@ public class SwingGUI extends GUI {
     @Override
     public Tile getSelectedTile() {
         return this.mapViewer.getSelectedTile();
+    }
+
+    /**
+     * Finish a view mode change.
+     *
+     * @param update Update the map controls if true.
+     */
+    private void changeDone(boolean update) {
+        if (getViewMode() == ViewMode.MOVE_UNITS
+            && getActiveUnit() != null) {
+            this.mapViewer.startCursorBlinking();
+        } else {
+            this.mapViewer.stopCursorBlinking();
+        }
+            
+        if (update) updateMapControls();
+        updateMenuBar();
     }
 
     /**
@@ -1126,7 +1169,18 @@ public class SwingGUI extends GUI {
      * {@inheritDoc}
      */
     @Override
+    protected void resetMapZoom() {
+        super.resetMapZoom();
+        this.mapViewer.resetMapScale();
+        refresh();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void zoomInMap() {
+        super.zoomInMap();
         this.mapViewer.increaseMapScale();
         refresh();
     }
@@ -1136,6 +1190,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void zoomOutMap() {
+        super.zoomOutMap();
         this.mapViewer.decreaseMapScale();
         refresh();
     }
@@ -1150,27 +1205,16 @@ public class SwingGUI extends GUI {
     public void clickAt(int count, int x, int y) {
         // This could be a drag, which would have already been processed
         // in @see CanvasMouseListener#mouseReleased
-        if (count == 1 && isDrag(x, y)) return;
-
-        final Tile tile = tileAt(x, y);
+        if (count == 1 && canvas.isDrag(x, y)) return;
+        
+        final Tile tile = canvas.convertToMapTile(x, y);
         if (tile == null) return;
         Unit other = null;
 
         if (!tile.isExplored()) { // Select unexplored tiles
             changeView(tile);
         } else if (tile.hasSettlement()) { // Pop up settlements if any
-            Settlement settlement = tile.getSettlement();
-            if (settlement instanceof Colony) {
-                if (getMyPlayer().owns(settlement)) {
-                    showColonyPanel((Colony)settlement, null);
-                } else {
-                    DebugUtils.showForeignColony(getFreeColClient(),
-                                                 (Colony)settlement);
-                }
-            } else if (settlement instanceof IndianSettlement) {
-                showIndianSettlementPanel((IndianSettlement)settlement);
-            }
-            changeView(tile);
+            showTileSettlement(tile);
         } else if ((other = this.mapViewer.findUnitInFront(tile)) != null) {
             if (getMyPlayer().owns(other)) {
                 // If there is one of the player units present, select it,
@@ -1206,7 +1250,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void closePanel(String panel) {
-        this.canvas.closePanel(panel);
+        canvas.closePanel(panel);
     }
 
     /**
@@ -1214,7 +1258,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void closeMainPanel() {
-        this.canvas.closeMainPanel();
+        canvas.closeMainPanel();
     }
 
     /**
@@ -1222,23 +1266,25 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void closeStatusPanel() {
-        StatusPanel panel
-            = this.canvas.getExistingFreeColPanel(StatusPanel.class);
-        if (panel != null) {
-            this.canvas.removeFromCanvas(panel);
-            this.canvas.requestFocusInWindow();
-        }
+        canvas.closeStatusPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void displayChat(String sender, String message, Color color,
+    public List<String> confirmDeclaration() {
+        return canvas.showConfirmDeclarationDialog();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void displayChat(Player player, String message,
                             boolean privateChat) {
-        this.mapViewer.displayChat(new GUIMessage(sender + ": " + message,
-                                                  color));
-        refresh();
+        canvas.displayChat(new GUIMessage(
+            player.getName() + ": " + message, player.getNationColor()));
     }
 
     /**
@@ -1248,22 +1294,22 @@ public class SwingGUI extends GUI {
     public void displayObject(FreeColObject fco) {
         // TODO: Improve OO.
         if (fco instanceof Colony) {
-            showColonyPanel((Colony)fco, null);
+            canvas.showColonyPanel((Colony)fco, null);
         } else if (fco instanceof Europe) {
-            showEuropePanel();
+            canvas.showEuropePanel();
         } else if (fco instanceof IndianSettlement) {
-            showIndianSettlementPanel((IndianSettlement)fco);
+            canvas.showIndianSettlementPanel((IndianSettlement)fco);
         } else if (fco instanceof Tile) {
             setFocus((Tile)fco);
         } else if (fco instanceof Unit) {
             Location loc = ((Unit)fco).up();
             if (loc instanceof Colony) {
-                showColonyPanel((Colony)loc, (Unit)fco);
+                canvas.showColonyPanel((Colony)loc, (Unit)fco);
             } else {
                 displayObject((FreeColObject)loc);
             }
         } else if (fco instanceof WorkLocation) {
-            showColonyPanel(((WorkLocation)fco).getColony(), null);
+            canvas.showColonyPanel(((WorkLocation)fco).getColony(), null);
         }
     }
 
@@ -1271,13 +1317,9 @@ public class SwingGUI extends GUI {
      * {@inheritDoc}
      */
     @Override
-    public void displayStartChat(String sender, String message,
+    public void displayStartChat(Player player, String message,
                                  boolean privateChat) {
-        StartGamePanel panel
-            = this.canvas.getExistingFreeColPanel(StartGamePanel.class);
-        if (panel != null) {
-            panel.displayChat(sender, message, privateChat);
-        }
+        canvas.displayStartChat(player.getName(), message, privateChat);
     }
 
     /**
@@ -1285,34 +1327,31 @@ public class SwingGUI extends GUI {
      */
     @Override
     public boolean isClientOptionsDialogShowing() {
-        return this.canvas.getExistingFreeColDialog(ClientOptionsDialog.class) != null;
+        return canvas != null && canvas.isClientOptionsDialogShowing();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public boolean isPanelShowing() {
-        return this.canvas != null && this.canvas.getShowingPanel() != null;
+    public boolean isShowingSubPanel() {
+        return canvas != null && canvas.getShowingSubPanel() != null;
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void refresh() {
-        this.mapViewer.forceReposition();
-        this.canvas.repaint(0, 0, this.canvas.getWidth(), this.canvas.getHeight());
+    public boolean onClosingErrorPanel(Runnable callback) {
+        return canvas != null && canvas.onClosingErrorPanel(callback);
     }
-
+        
     /**
      * {@inheritDoc}
      */
     @Override
     public void refreshPlayersTable() {
-        StartGamePanel panel
-            = this.canvas.getExistingFreeColPanel(StartGamePanel.class);
-        if (panel != null) panel.refreshPlayersTable();
+        canvas.refreshPlayersTable();
     }
 
     /**
@@ -1320,8 +1359,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void removeComponent(Component component) {
-        this.canvas.remove(component);
-        if (!isPanelShowing()) this.canvas.requestFocusInWindow();
+        canvas.remove(component);
     }
 
     /**
@@ -1329,18 +1367,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void removeDialog(FreeColDialog<?> fcd) {
-        this.canvas.dialogRemove(fcd);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void removeTradeRoutePanel(FreeColPanel panel) {
-        this.canvas.remove(panel);
-        TradeRouteInputPanel tripPanel
-            = this.canvas.getExistingFreeColPanel(TradeRouteInputPanel.class);
-        if (tripPanel != null) tripPanel.cancelTradeRoute();
+        canvas.dialogRemove(fcd);
     }
 
     /**
@@ -1348,68 +1375,23 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void restoreSavedSize(Component comp, Dimension size) {
-        this.canvas.restoreSavedSize(comp, size);
+        canvas.restoreSavedSize(comp, size);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void showTilePopup(Tile tile) {
-        if (tile == null || !tile.isExplored()) return;
-        TilePopup tp = new TilePopup(getFreeColClient(), tile);
-        if (tp.hasItem()) {
-            Point point = this.mapViewer.calculateTilePosition(tile, true);
-            tp.show(this.canvas, point.x, point.y);
-            tp.repaint();
-        }
+    public void showAboutPanel() {
+        canvas.showAboutPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public Tile tileAt(int x, int y) {
-        return this.mapViewer.convertToMapTile(x, y);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateEuropeanSubpanels() {
-        for (Class<? extends FreeColPanel> c: EUROPE_CLASSES) {
-            FreeColPanel p = this.canvas.getExistingFreeColPanel(c);
-            if (p != null) {
-                // TODO: remember how to write generic code, avoid
-                // introspection
-                try {
-                    Introspector.invokeVoidMethod(p, "update");
-                } catch (Exception e) {
-                    ; // "can not happen"
-                }
-            }
-        }
-    }
-
-
-    // Panel display, usually used just by the associated action,
-    // mostly delegated to Widgets
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public FreeColPanel showAboutPanel() {
-        return this.widgets.showAboutPanel();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public FreeColPanel showBuildQueuePanel(Colony colony) {
-        return this.widgets.showBuildQueuePanel(colony);
+    public BuildQueuePanel showBuildQueuePanel(Colony colony) {
+        return canvas.showBuildQueuePanel(colony);
     }
 
     /**
@@ -1418,16 +1400,15 @@ public class SwingGUI extends GUI {
     @Override
     public void showCaptureGoodsDialog(final Unit unit, List<Goods> gl,
                                        DialogHandler<List<Goods>> handler) {
-        this.widgets.showCaptureGoodsDialog(unit, gl, handler);
+        canvas.showCaptureGoodsDialog(unit, gl, handler);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showChatPanel() {
-        return (getFreeColClient().getSinglePlayer()) ? null
-            : this.widgets.showChatPanel();
+    public void showChatPanel() {
+        canvas.showChatPanel();
     }
 
     /**
@@ -1435,8 +1416,8 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void showChooseFoundingFatherDialog(final List<FoundingFather> ffs,
-                                               DialogHandler<FoundingFather> handler) {
-        this.widgets.showChooseFoundingFatherDialog(ffs, handler);
+                DialogHandler<FoundingFather> handler) {
+        canvas.showChooseFoundingFatherDialog(ffs, handler);
     }
 
     /**
@@ -1444,19 +1425,17 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void showClientOptionsDialog() {
-        final FreeColClient fcc = getFreeColClient();
         OptionGroup group = null;
         try {
-            ClientOptionsDialog dialog
-                = new ClientOptionsDialog(fcc, this.canvas.getParentFrame());
-            group = this.canvas.showFreeColDialog(dialog, null);
+            group = canvas.showClientOptionsDialog();
         } finally {
-            this.canvas.resetMenuBar();
+            resetMenuBar();
             if (group != null) {
                 // Immediately redraw the minimap if that was updated.
                 updateMapControls();
             }
         }
+        FreeColClient fcc = getFreeColClient();
         if (fcc.isMapEditor()) {
             startMapEditorGUI();
         } else if (fcc.isInGame()) {
@@ -1470,71 +1449,48 @@ public class SwingGUI extends GUI {
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showColonyPanel(Colony colony, Unit unit) {
-        if (colony == null) return null;
-        ColonyPanel panel = this.canvas.getColonyPanel(colony);
-        if (panel == null) {
-            try {
-                panel = new ColonyPanel(getFreeColClient(), colony);
-            } catch (Exception e) {
-                logger.log(Level.WARNING, "Exception in ColonyPanel for "
-                    + colony.getId(), e);
-                return null;
-            }
-            this.canvas.showFreeColPanel(panel, colony.getTile(), true);
-        } else {
-            panel.requestFocus();
-        }
-        if (unit != null) panel.setSelectedUnit(unit);
-        return panel;
+    public ColonyPanel showColonyPanel(Colony colony, Unit unit) {
+        return canvas.showColonyPanel(colony, unit);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showColopediaPanel(String nodeId) {
-        return this.widgets.showColopediaPanel(nodeId);
+    public void showColopediaPanel(String nodeId) {
+        canvas.showColopediaPanel(nodeId);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showColorChooserPanel(ActionListener al) {
-        return this.widgets.showColorChooserPanel(al);
+    public ColorChooserPanel showColorChooserPanel(ActionListener al) {
+        return canvas.showColorChooserPanel(al);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showCompactLabourReport() {
-        return this.widgets.showCompactLabourReport();
+    public void showCompactLabourReport() {
+        canvas.showCompactLabourReport();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showCompactLabourReport(UnitData unitData) {
-        return this.widgets.showCompactLabourReport(unitData);
+    public void showCompactLabourReport(UnitData unitData) {
+        canvas.showCompactLabourReport(unitData);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public List<String> showConfirmDeclarationDialog() {
-        return this.widgets.showConfirmDeclarationDialog();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public FreeColPanel showDeclarationPanel() {
-        return this.widgets.showDeclarationPanel();
+    public void showDeclarationPanel() {
+        canvas.showDeclarationPanel();
     }
 
     /**
@@ -1544,10 +1500,7 @@ public class SwingGUI extends GUI {
     public OptionGroup showDifficultyDialog(Specification spec,
                                             OptionGroup group,
                                             boolean editable) {
-        OptionGroup ret
-            = this.widgets.showDifficultyDialog(spec, group, editable);
-        if (ret != null) FreeCol.setDifficulty(ret);
-        return ret;
+        return canvas.showDifficultyDialog(spec, group, editable);
     }
 
     /**
@@ -1556,7 +1509,7 @@ public class SwingGUI extends GUI {
     @Override
     public void showDumpCargoDialog(Unit unit,
                                     DialogHandler<List<Goods>> handler) {
-        this.widgets.showDumpCargoDialog(unit, handler);
+        canvas.showDumpCargoDialog(unit, handler);
     }
 
     /**
@@ -1564,15 +1517,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public boolean showEditOptionDialog(Option option) {
-        return this.widgets.showEditOptionDialog(option);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public IndianSettlement showEditSettlementDialog(IndianSettlement is) {
-        return this.widgets.showEditSettlementDialog(is);
+        return canvas.showEditOptionDialog(option);
     }
 
     /**
@@ -1582,7 +1527,7 @@ public class SwingGUI extends GUI {
     public void showEmigrationDialog(final Player player,
                                      final boolean fountainOfYouth,
                                      DialogHandler<Integer> handler) {
-        this.widgets.showEmigrationDialog(player, fountainOfYouth, handler);
+        canvas.showEmigrationDialog(player, fountainOfYouth, handler);
     }
 
     /**
@@ -1591,46 +1536,39 @@ public class SwingGUI extends GUI {
     @Override
     public void showEndTurnDialog(final List<Unit> units,
                                   DialogHandler<Boolean> handler) {
-        this.widgets.showEndTurnDialog(units, handler);
+        canvas.showEndTurnDialog(units, handler);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showErrorPanel(String message, Runnable callback) {
-        return this.widgets.showErrorPanel(message)
-            .addClosingCallback(callback);
+    protected void showErrorMessage(String message, Runnable callback) {
+        canvas.showErrorMessage(message, callback);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showEuropePanel() {
-        return this.widgets.showEuropePanel(() -> {
-                for (Class<? extends FreeColPanel> c: EUROPE_CLASSES) {
-                    FreeColPanel p = this.canvas.getExistingFreeColPanel(c);
-                    if (p != null) this.canvas.remove(p);
-                }
-            });
+    public void showEuropePanel() {
+        canvas.showEuropePanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showEventPanel(String header, String image,
-                                       String footer) {
-        return this.widgets.showEventPanel(header, image, footer);
+    public void showEventPanel(String header, String image, String footer) {
+        canvas.showEventPanel(header, image, footer);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showFindSettlementPanel() {
-        return this.widgets.showFindSettlementPanel();
+    public void showFindSettlementPanel() {
+        canvas.showFindSettlementPanel();
     }
 
     /**
@@ -1640,8 +1578,8 @@ public class SwingGUI extends GUI {
     public void showFirstContactDialog(final Player player, final Player other,
                                        final Tile tile, int settlementCount,
                                        DialogHandler<Boolean> handler) {
-        this.widgets.showFirstContactDialog(player, other, tile,
-                                            settlementCount, handler);
+        canvas.showFirstContactDialog(player, other, tile, settlementCount,
+                                      handler);
     }
 
     /**
@@ -1649,45 +1587,45 @@ public class SwingGUI extends GUI {
      */
     @Override
     public OptionGroup showGameOptionsDialog(boolean editable) {
-        return this.widgets.showGameOptionsDialog(editable);
+        return canvas.showGameOptionsDialog(editable);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showHighScoresPanel(String messageId,
-                                            List<HighScore> scores) {
-        return this.widgets.showHighScoresPanel(messageId, scores);
+    public void showHighScoresPanel(String messageId, List<HighScore> scores) {
+        canvas.showHighScoresPanel(messageId, scores);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showIndianSettlementPanel(IndianSettlement is) {
-        return this.widgets.showIndianSettlementPanel(is);
+    public void showIndianSettlement(IndianSettlement indianSettlement) {
+        canvas.showIndianSettlementPanel(indianSettlement);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showInformationPanel(FreeColObject displayObject,
-                                             StringTemplate template) {
+    public InformationPanel showInformationPanel(FreeColObject displayObject,
+                                                 StringTemplate template) {
+        super.showInformationPanel(displayObject, template);
         ImageIcon icon = null;
         Tile tile = null;
-        if (displayObject != null) {
-            icon = this.imageLibrary.getObjectImageIcon(displayObject);
-            tile = (displayObject instanceof Location)
-                ? ((Location)displayObject).getTile()
-                : null;
+        if (displayObject instanceof Settlement) {
+            icon = new ImageIcon(imageLibrary.getScaledSettlementImage((Settlement)displayObject));
+            tile = ((Settlement)displayObject).getTile();
+        } else if (displayObject instanceof Tile) {
+            icon = null;
+            tile = (Tile)displayObject;
+        } else if (displayObject instanceof Unit) {
+            icon = new ImageIcon(imageLibrary.getScaledUnitImage((Unit)displayObject));
+            tile = ((Unit)displayObject).getTile();
         }
-        if (getClientOptions().getBoolean(ClientOptions.AUDIO_ALERTS)) {
-            playSound("sound.event.alertSound");
-        }
-        return this.widgets.showInformationPanel(displayObject, tile,
-                                                 icon, template);
+        return canvas.showInformationPanel(displayObject, tile, icon, template);
     }
 
     /**
@@ -1695,18 +1633,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public File showLoadDialog(File directory, String extension) {
-        FileFilter[] filters = new FileFilter[] {
-            FreeColDataFile.getFileFilter(extension)
-        };
-        File file = null;
-        for (;;) {
-            file = this.widgets.showLoadDialog(directory, filters);
-            if (file == null || file.isFile()) break;
-            String err = Messages.message(FreeCol.badFile("error.noSuchFile",
-                                                          file));
-            showErrorPanel(err, null);
-        }
-        return file;
+        return canvas.showLoadDialog(directory, extension);
     }
 
     /**
@@ -1715,26 +1642,23 @@ public class SwingGUI extends GUI {
     @Override
     public LoadingSavegameInfo showLoadingSavegameDialog(boolean publicServer,
                                                          boolean singlePlayer) {
-        return this.widgets.showLoadingSavegameDialog(publicServer,
-                                                      singlePlayer);
+        return canvas.showLoadingSavegameDialog(publicServer, singlePlayer);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showLogFilePanel() {
-        return this.widgets.showLogFilePanel();
+    public void showLogFilePanel() {
+        canvas.showLogFilePanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showMainPanel(String userMsg) {
-        FreeColPanel panel = this.canvas.showMainPanel();
-        if (userMsg != null) showInformationPanel(userMsg);
-        return panel;
+    public void showMainPanel(String userMsg) {
+        canvas.showMainPanel(userMsg);
     }
 
     /**
@@ -1742,7 +1666,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void showMainTitle() {
-        this.canvas.mainTitle();
+        canvas.mainTitle();
         playSound("sound.intro.general");
     }
 
@@ -1751,7 +1675,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public OptionGroup showMapGeneratorOptionsDialog(boolean editable) {
-        return this.widgets.showMapGeneratorOptionsDialog(editable);
+        return canvas.showMapGeneratorOptionsDialog(editable);
     }
 
     /**
@@ -1759,34 +1683,15 @@ public class SwingGUI extends GUI {
      */
     @Override
     public Dimension showMapSizeDialog() {
-        return this.widgets.showMapSizeDialog();
+        return canvas.showMapSizeDialog();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showModelMessages(List<ModelMessage> modelMessages) {
-        if (modelMessages.isEmpty()) return null;
-        final Game game = getGame();
-        int n = modelMessages.size();
-        String[] texts = new String[n];
-        FreeColObject[] fcos = new FreeColObject[n];
-        ImageIcon[] icons = new ImageIcon[n];
-        Tile tile = null;
-        for (int i = 0; i < n; i++) {
-            ModelMessage m = modelMessages.get(i);
-            texts[i] = Messages.message(m);
-            fcos[i] = game.getMessageSource(m);
-            icons[i] = this.imageLibrary
-                .getObjectImageIcon(game.getMessageDisplay(m));
-            if (tile == null && fcos[i] instanceof Location) {
-                tile = ((Location)fcos[i]).getTile();
-            }
-        }
-        InformationPanel panel
-            = new InformationPanel(getFreeColClient(), texts, fcos, icons);
-        return this.canvas.showFreeColPanel(panel, tile, true);
+    public void showModelMessages(List<ModelMessage> modelMessages) {
+        canvas.showModelMessages(modelMessages);
     }
 
     /**
@@ -1796,7 +1701,7 @@ public class SwingGUI extends GUI {
     public void showMonarchDialog(final MonarchAction action,
                                   StringTemplate template, String monarchKey,
                                   DialogHandler<Boolean> handler) {
-        this.widgets.showMonarchDialog(action, template, monarchKey, handler);
+        canvas.showMonarchDialog(action, template, monarchKey, handler);
     }
 
     /**
@@ -1807,7 +1712,7 @@ public class SwingGUI extends GUI {
                                       final String defaultName,
                                       final Unit unit,
                                       DialogHandler<String> handler) {
-        this.widgets.showNamingDialog(template, defaultName, unit, handler);
+        canvas.showNamingDialog(template, defaultName, unit, handler);
     }
 
     /**
@@ -1817,7 +1722,7 @@ public class SwingGUI extends GUI {
     public void showNativeDemandDialog(Unit unit, Colony colony,
                                        GoodsType type, int amount,
                                        DialogHandler<Boolean> handler) {
-        this.widgets.showNativeDemandDialog(unit, colony, type, amount, handler);
+        canvas.showNativeDemandDialog(unit, colony, type, amount, handler);
     }
 
     /**
@@ -1825,23 +1730,18 @@ public class SwingGUI extends GUI {
      */
     @Override
     public DiplomaticTrade showNegotiationDialog(FreeColGameObject our,
-                                                 FreeColGameObject other,
-                                                 DiplomaticTrade agreement,
-                                                 StringTemplate comment) {
-        if ((!(our instanceof Unit) && !(our instanceof Colony))
-            || (!(other instanceof Unit) && !(other instanceof Colony))
-            || (our instanceof Colony && other instanceof Colony)) {
-            throw new RuntimeException("Bad DTD args: " + our + ", " + other);
-        }
-        return this.widgets.showNegotiationDialog(our, other, agreement, comment);
+                                                     FreeColGameObject other,
+                                                     DiplomaticTrade agreement,
+                                                     StringTemplate comment) {
+        return canvas.showNegotiationDialog(our, other, agreement, comment);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showNewPanel(Specification spec) {
-        return this.widgets.showNewPanel(spec);
+    public void showNewPanel(Specification spec) {
+        canvas.showNewPanel(spec);
     }
 
     /**
@@ -1849,7 +1749,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public Parameters showParametersDialog() {
-        return this.widgets.showParametersDialog();
+        return canvas.showParametersDialog();
     }
 
     /**
@@ -1858,170 +1758,162 @@ public class SwingGUI extends GUI {
     @Override
     public boolean showPreCombatDialog(Unit attacker,
                                        FreeColGameObject defender, Tile tile) {
-        return this.widgets.showPreCombatDialog(attacker, defender, tile);
+        return canvas.showPreCombatDialog(attacker, defender, tile);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showPurchasePanel() {
-        return this.widgets.showPurchasePanel();
+    public void showPurchasePanel() {
+        canvas.showPurchasePanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showRecruitPanel() {
-        return this.widgets.showRecruitPanel();
+    public void showRecruitPanel() {
+        canvas.showRecruitPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportCargoPanel() {
-        return this.widgets.showReportCargoPanel();
+    public void showReportCargoPanel() {
+        canvas.showReportCargoPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportColonyPanel() {
-        boolean compact;
-        try {
-            compact = getFreeColClient().getClientOptions()
-                .getInteger(ClientOptions.COLONY_REPORT)
-                == ClientOptions.COLONY_REPORT_COMPACT;
-        } catch (Exception e) {
-            compact = false;
-        }
-        return this.widgets.showReportColonyPanel(compact);
+    public void showReportColonyPanel() {
+        canvas.showReportColonyPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportContinentalCongressPanel() {
-        return this.widgets.showReportContinentalCongressPanel();
+    public void showReportContinentalCongressPanel() {
+        canvas.showReportContinentalCongressPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportEducationPanel() {
-        return this.widgets.showReportEducationPanel();
+    public void showReportEducationPanel() {
+        canvas.showReportEducationPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportExplorationPanel() {
-        return this.widgets.showReportExplorationPanel();
+    public void showReportExplorationPanel() {
+        canvas.showReportExplorationPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportForeignAffairPanel() {
-        return this.widgets.showReportForeignAffairPanel();
+    public void showReportForeignAffairPanel() {
+        canvas.showReportForeignAffairPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportHistoryPanel() {
-        return this.widgets.showReportHistoryPanel();
+    public void showReportHistoryPanel() {
+        canvas.showReportHistoryPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportIndianPanel() {
-        return this.widgets.showReportIndianPanel();
+    public void showReportIndianPanel() {
+        canvas.showReportIndianPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportLabourPanel() {
-        return this.widgets.showReportLabourPanel();
+    public void showReportLabourPanel() {
+        canvas.showReportLabourPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportLabourDetailPanel(UnitType unitType,
-            Map<UnitType, java.util.Map<Location, Integer>> data,
+    public void showReportLabourDetailPanel(UnitType unitType,
+            java.util.Map<UnitType, java.util.Map<Location, Integer>> data,
             TypeCountMap<UnitType> unitCount, List<Colony> colonies) {
-        return this.widgets.showReportLabourDetailPanel(unitType, data,
-                                                        unitCount, colonies);
+        canvas.showReportLabourDetailPanel(unitType, data, unitCount,
+                                           colonies);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportMilitaryPanel() {
-        return this.widgets.showReportMilitaryPanel();
+    public void showReportMilitaryPanel() {
+        canvas.showReportMilitaryPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportNavalPanel() {
-        return this.widgets.showReportNavalPanel();
+    public void showReportNavalPanel() {
+        canvas.showReportNavalPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportProductionPanel() {
-        return this.widgets.showReportProductionPanel();
+    public void showReportProductionPanel() {
+        canvas.showReportProductionPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportReligiousPanel() {
-        return this.widgets.showReportReligiousPanel();
+    public void showReportReligiousPanel() {
+        canvas.showReportReligiousPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportRequirementsPanel() {
-        return this.widgets.showReportRequirementsPanel();
+    public void showReportRequirementsPanel() {
+        canvas.showReportRequirementsPanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportTradePanel() {
-        return this.widgets.showReportTradePanel();
+    public void showReportTradePanel() {
+        canvas.showReportTradePanel();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showReportTurnPanel(List<ModelMessage> messages) {
-        return this.widgets.showReportTurnPanel(messages);
+    public void showReportTurnPanel(List<ModelMessage> messages) {
+        canvas.showReportTurnPanel(messages);
     }
 
     /**
@@ -2029,7 +1921,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public String showRiverStyleDialog(List<String> styles) {
-        return this.widgets.showRiverStyleDialog(styles);
+        return canvas.showRiverStyleDialog(styles);
     }
 
     /**
@@ -2037,11 +1929,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public File showSaveDialog(File directory, String defaultName) {
-        String extension = lastPart(defaultName, ".");
-        FileFilter[] filters = new FileFilter[] {
-            FreeColDataFile.getFileFilter(extension)
-        };
-        return this.widgets.showSaveDialog(directory, filters, defaultName);
+        return canvas.showSaveDialog(directory, defaultName);
     }
 
     /**
@@ -2049,7 +1937,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public Dimension showScaleMapSizeDialog() {
-        return this.widgets.showScaleMapSizeDialog();
+        return canvas.showScaleMapSizeDialog();
     }
 
     /**
@@ -2058,8 +1946,8 @@ public class SwingGUI extends GUI {
     @Override
     public int showSelectAmountDialog(GoodsType goodsType, int available,
                                       int defaultAmount, boolean needToPay) {
-        return this.widgets.showSelectAmountDialog(goodsType, available,
-                                                   defaultAmount, needToPay);
+        return canvas.showSelectAmountDialog(goodsType, available,
+                                             defaultAmount, needToPay);
     }
 
     /**
@@ -2067,7 +1955,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public Location showSelectDestinationDialog(Unit unit) {
-        return this.widgets.showSelectDestinationDialog(unit);
+        return canvas.showSelectDestinationDialog(unit);
     }
 
     /**
@@ -2076,96 +1964,83 @@ public class SwingGUI extends GUI {
     @Override
     public int showSelectTributeAmountDialog(StringTemplate question,
                                              int maximum) {
-        return this.widgets.showSelectTributeAmountDialog(question, maximum);
+        return canvas.showSelectTributeAmountDialog(question, maximum);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showServerListPanel(List<ServerInfo> serverList) {
-        this.canvas.closeMenus();
-        return this.widgets.showServerListPanel(serverList);
+    public void showServerListPanel(List<ServerInfo> serverList) {
+        canvas.showServerListPanel(serverList);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showStartGamePanel(Game game, Player player,
-                                           boolean singlePlayerMode) {
-        if (game == null) {
-            logger.warning("StartGamePanel requires game != null.");
-        } else if (player == null) {
-            logger.warning("StartGamePanel requires player != null.");
-        } else {
-            this.canvas.closeMenus();
-            StartGamePanel panel
-                = this.canvas.getExistingFreeColPanel(StartGamePanel.class);
-            if (panel == null) {
-                panel = new StartGamePanel(getFreeColClient());
-            }
-            panel.initialize(singlePlayerMode);
-            return this.canvas.showFreeColPanel(panel, false);
-        }
-        return null;
+    public void showStartGamePanel(Game game, Player player,
+                                   boolean singlePlayerMode) {
+        canvas.showStartGamePanel(game, player, singlePlayerMode);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showStatisticsPanel(Map<String, String> serverStats,
-                                            Map<String, String> clientStats) {
-        return this.widgets.showStatisticsPanel(serverStats, clientStats);
+    public void showStatisticsPanel(java.util.Map<String, String> serverStats,
+                                    java.util.Map<String, String> clientStats) {
+        canvas.showStatisticsPanel(serverStats, clientStats);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showStatusPanel(String message) {
-        StatusPanel panel
-            = this.canvas.getExistingFreeColPanel(StatusPanel.class);
-        if (panel == null) {
-            panel = new StatusPanel(getFreeColClient());
-        } else {
-            this.canvas.removeFromCanvas(panel);
-        }
-        panel.setStatusMessage(message);
-        return this.canvas.showFreeColPanel(panel, true);
+    public void showStatusPanel(String message) {
+        canvas.showStatusPanel(message);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showTilePanel(Tile tile) {
-        return this.widgets.showTilePanel(tile);
+    public void showTilePanel(Tile tile) {
+        canvas.showTilePanel(tile);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showTradeRouteInputPanel(TradeRoute newRoute) {
-        return this.widgets.showTradeRouteInputPanel(newRoute);
+    public void showTilePopup(int x, int y) {
+        final Tile tile = canvas.convertToMapTile(x, y);
+        if (tile == null) return;
+        canvas.showTilePopup(tile);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showTradeRoutePanel(Unit unit) {
-        return this.widgets.showTradeRoutePanel(unit);
+    public TradeRouteInputPanel showTradeRouteInputPanel(TradeRoute newRoute) {
+        return canvas.showTradeRouteInputPanel(newRoute);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showTrainPanel() {
-        return this.widgets.showTrainPanel();
+    public void showTradeRoutePanel(Unit unit) {
+        canvas.showTradeRoutePanel(unit);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void showTrainPanel() {
+        canvas.showTrainPanel();
     }
 
     /**
@@ -2173,7 +2048,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void showVictoryDialog(DialogHandler<Boolean> handler) {
-        this.widgets.showVictoryDialog(handler);
+        canvas.showVictoryDialog(handler);
     }
 
     /**
@@ -2181,14 +2056,22 @@ public class SwingGUI extends GUI {
      */
     @Override
     public boolean showWarehouseDialog(Colony colony) {
-        return this.widgets.showWarehouseDialog(colony);
+        return canvas.showWarehouseDialog(colony);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public FreeColPanel showWorkProductionPanel(Unit unit) {
-        return this.widgets.showWorkProductionPanel(unit);
+    public void showWorkProductionPanel(Unit unit) {
+        canvas.showWorkProductionPanel(unit);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void updateEuropeanSubpanels() {
+        canvas.updateEuropeanSubpanels();
     }
 }

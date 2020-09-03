@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -20,26 +20,29 @@
 package net.sf.freecol.client.gui.animation;
 
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.lang.Math;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Logger;
 
 import javax.swing.JLabel;
 
+import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.client.control.FreeColClientHolder;
+import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.client.gui.ImageLibrary;
+import net.sf.freecol.client.gui.OutForAnimationCallback;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
-import static net.sf.freecol.common.util.CollectionUtils.*;
 import static net.sf.freecol.common.util.Utils.*;
 
 
 /**
  * Class for the animation of units movement.
  */
-final class UnitMoveAnimation extends Animation {
+final class UnitMoveAnimation extends FreeColClientHolder
+    implements OutForAnimationCallback {
 
-    private static final Logger logger = Logger.getLogger(UnitMoveAnimation.class.getName());
+    private static final Logger logger = Logger.getLogger(UnitAttackAnimation.class.getName());
 
     /**
      * Display delay between one frame and another, in milliseconds.
@@ -47,56 +50,92 @@ final class UnitMoveAnimation extends Animation {
      */
     private static final long ANIMATION_DELAY = 33L;
 
-    /** The animation speed client option. */
+    private final Unit unit;
+    private final Tile sourceTile;
+    private final Tile destinationTile;
     private final int speed;
-
-    /** The image scale. */
-    private final float scale;
 
 
     /**
-     * Build a new movement animation.
+     * Constructor
      *
+     * @param freeColClient The enclosing {@code FreeColClient}.
      * @param unit The {@code Unit} to be animated.
      * @param sourceTile The {@code Tile} the unit is moving from.
      * @param destinationTile The {@code Tile} the unit is moving to.
-     * @param speed The animation speed.
-     * @param scale The scale factor for the unit image.
      */
-    public UnitMoveAnimation(Unit unit,
-                             Tile sourceTile, Tile destinationTile,
-                             int speed, float scale) {
-        super(unit, makeUnmodifiableList(sourceTile, destinationTile));
+    public UnitMoveAnimation(FreeColClient freeColClient, Unit unit,
+                             Tile sourceTile, Tile destinationTile) {
+        super(freeColClient);
 
-        this.speed = speed;
-        this.scale = scale;
+        this.unit = unit;
+        this.sourceTile = sourceTile;
+        this.destinationTile = destinationTile;
+        this.speed = freeColClient.getAnimationSpeed(unit.getOwner());
     }
     
 
-    // Implement Animation
+    /**
+     * Do the animation.
+     *
+     * @return True if the required animations were found and launched,
+     *     false on error.
+     */
+    public boolean animate() {
+        if (this.speed <= 0) {
+            logger.warning("Failed move animation with zero speed: "
+                + this.unit);
+            return false;
+        }
+
+        getGUI().executeWithUnitOutForAnimation(this.unit, this.sourceTile,
+                                                this);
+        return true;
+    }
+
+
+    // Interface OutForAnimationCallback
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void executeWithLabel(JLabel unitLabel,
-                                 Animations.Procedure paintCallback) {
-        final int movementRatio = (int)(Math.pow(2, this.speed + 1)
-            * this.scale);
+    public void executeWithUnitOutForAnimation(JLabel unitLabel) {
+        final GUI gui = getGUI();
+        final float scale = gui.getAnimationScale();
+        final int movementRatio = (int)(Math.pow(2, this.speed + 1) * scale);
+        final Rectangle r1 = gui.getAnimationTileBounds(this.sourceTile);
+        final Rectangle r2 = gui.getAnimationTileBounds(this.destinationTile);
+        final Rectangle bounds = r1.union(r2);
         final double xratio = ImageLibrary.TILE_SIZE.width
             / (double)ImageLibrary.TILE_SIZE.height;
-        final Point srcPoint = this.points.get(0);
-        final Point dstPoint = this.points.get(1);
-        final int stepX = (int)(Math.signum(dstPoint.getX() - srcPoint.getX())
-            * xratio * movementRatio);
-        final int stepY = (int)(Math.signum(dstPoint.getY() - srcPoint.getY())
-            * movementRatio);
+
+        // Tile positions should be valid at this point.
+        final Point srcP = gui.getAnimationTilePosition(this.sourceTile);
+        if (srcP == null) {
+            logger.warning("Failed move animation for " + this.unit
+                + " at source tile: " + this.sourceTile);
+            return;
+        }
+        final Point dstP = gui.getAnimationTilePosition(this.destinationTile);
+        if (dstP == null) {
+            logger.warning("Failed move animation for " + this.unit
+                + " at destination tile: " + this.destinationTile);
+            return;
+        }
+            
+        final int labelWidth = unitLabel.getWidth();
+        final int labelHeight = unitLabel.getHeight();
+        final Point srcPoint = gui.getAnimationPosition(labelWidth, labelHeight, srcP);
+        final Point dstPoint = gui.getAnimationPosition(labelWidth, labelHeight, dstP);
+        final int stepX = (int)Math.signum(dstPoint.getX() - srcPoint.getX());
+        final int stepY = (int)Math.signum(dstPoint.getY() - srcPoint.getY());
 
         Point point = srcPoint;
         long time = now(), dropFrames = 0;
         while (!point.equals(dstPoint)) {
-            point.x += stepX;
-            point.y += stepY;
+            point.x += stepX * xratio * movementRatio;
+            point.y += stepY * movementRatio;
             if ((stepX < 0 && point.x < dstPoint.x)
                 || (stepX > 0 && point.x > dstPoint.x)) {
                 point.x = dstPoint.x;
@@ -107,7 +146,7 @@ final class UnitMoveAnimation extends Animation {
             }
             if (dropFrames <= 0) {
                 unitLabel.setLocation(point);
-                paintCallback.execute(); // repaint now
+                gui.paintImmediately(bounds);
                 long newTime = now();
                 long timeTaken = newTime - time;
                 time = newTime;
@@ -122,5 +161,6 @@ final class UnitMoveAnimation extends Animation {
                 dropFrames--;
             }
         }
+        gui.refresh();
     }
 }

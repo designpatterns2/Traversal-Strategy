@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -191,12 +191,10 @@ public final class PlayersTable extends JTable {
         public Component getTableCellRendererComponent(JTable table,
             Object value, boolean isSelected, boolean hasFocus,
             int row, int column) {
-            if (value != null) { // FIXME: Why does this happen?
-                box.setSelectedItem(value);
-                final NationState nationState = (NationState)value;
-                Utility.localizeToolTip(box, StringTemplate
-                    .key(nationState.getShortDescriptionKey()));
-            }
+            box.setSelectedItem(value);
+            final NationState nationState = (NationState)value;
+            Utility.localizeToolTip(this, StringTemplate
+                .key(nationState.getShortDescriptionKey()));
             return box;
         }
     }
@@ -606,7 +604,6 @@ public final class PlayersTable extends JTable {
                 switch (column) {
                 case ADVANTAGE_COLUMN:
                     preGameController.setNationType((NationType)value);
-                    update();
                     break;
                 case AVAILABILITY_COLUMN:
                     preGameController.setAvailable(nations.get(row),
@@ -615,7 +612,6 @@ public final class PlayersTable extends JTable {
                     break;
                 case COLOR_COLUMN:
                     preGameController.setColor(nation, (Color)value);
-                    update();
                     break;
                 case PLAYER_COLUMN:
                     if (nationOptions.getNationState(nation)

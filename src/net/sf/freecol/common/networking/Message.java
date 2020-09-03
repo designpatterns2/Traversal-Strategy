@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -600,7 +600,7 @@ public abstract class Message {
             if (soundId != null || flush) {
                 invokeLater(freeColClient, () -> {
                         if (soundId != null) igc(fcc).sound(soundId);
-                        if (flush) igc(fcc).nextModelMessage();
+                        if (flush) igc(fcc).displayModelMessages(false);
                     });
             }
         }

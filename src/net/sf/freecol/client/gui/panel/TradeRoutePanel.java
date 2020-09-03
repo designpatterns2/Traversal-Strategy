@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -172,7 +172,7 @@ public final class TradeRoutePanel extends FreeColPanel {
 
         JButton cancelButton = Utility.localizedButton("cancel");
         cancelButton.addActionListener((ae) ->
-            getGUI().removeTradeRoutePanel(this));
+            getGUI().getCanvas().removeTradeRoutePanel(this));
         setCancelComponent(cancelButton);
 
         updateButtons();

@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -71,31 +71,30 @@ public final class CanvasMouseListener extends FreeColClientHolder
      */
     public void mousePressed(MouseEvent e) {
         if (!e.getComponent().isEnabled()) return;
-        final GUI gui = getGUI();
-        
+
         if (e.isPopupTrigger()) {
-            gui.showTilePopup(gui.tileAt(e.getX(), e.getY()));
+            getGUI().showTilePopup(e.getX(), e.getY());
             return;
         }
 
         switch (e.getButton()) {
         case MouseEvent.BUTTON1: 
             // If we have GoTo mode enabled then GoTo takes precedence
-            if (gui.isGotoStarted()) {
-                gui.performGoto(e.getX(), e.getY());
+            if (getGUI().isGotoStarted()) {
+                getGUI().performGoto(e.getX(), e.getY());
                 break;
             }
 
             // Drag and selection
             // Enable dragging with button 1
             // @see CanvasMouseMotionListener#mouseDragged
-            gui.prepareDrag(e.getX(), e.getY());
+            getGUI().prepareDrag(e.getX(), e.getY());
             break;
         case MouseEvent.BUTTON2: // Immediate goto
-            gui.performGoto(e.getX(), e.getY());
+            getGUI().performGoto(e.getX(), e.getY());
             break;
         case MouseEvent.BUTTON3: // Immediate tile popup
-            gui.showTilePopup(gui.tileAt(e.getX(), e.getY()));
+            getGUI().showTilePopup(e.getX(), e.getY());
             break;
         default:
             break;

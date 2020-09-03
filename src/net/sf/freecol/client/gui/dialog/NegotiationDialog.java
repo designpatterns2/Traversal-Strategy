@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -21,7 +21,6 @@ package net.sf.freecol.client.gui.dialog;
 
 import java.awt.Component;
 import java.awt.Cursor;
-import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -39,11 +38,9 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTextArea;
 import javax.swing.ListCellRenderer;
-import javax.swing.ScrollPaneConstants;
 import javax.swing.SpinnerNumberModel;
 
 import net.miginfocom.swing.MigLayout;
@@ -949,6 +946,7 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
         this.summary = new MigPanel(new MigLayout("wrap 2", "[20px:n:n][]"));
         this.summary.setOpaque(false);
         this.summary.add(Utility.localizedTextArea(comment), "center, span 2");
+
         /**
          * Build Layout of Diplomatic Trade Dialog
          */
@@ -962,7 +960,8 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
         // Panel contents Header row
         JTextArea labelDemandMessage = Utility.localizedTextArea(this.demand);
         Font font = FontLibrary.createFont(FontLibrary.FontType.NORMAL,
-            FontLibrary.FontSize.TINY, Font.BOLD, getGUI().getMapScale());
+                FontLibrary.FontSize.TINY, Font.BOLD,
+                getImageLibrary().getScaleFactor());
         labelDemandMessage.setFont(font);
         panel.add(labelDemandMessage);
         JTextArea blank = new JTextArea(" ");
@@ -976,19 +975,13 @@ public final class NegotiationDialog extends FreeColDialog<DiplomaticTrade> {
         // TODO: Expand center panel so that contents fill cell horizontally. 
         panel.add(this.goldDemandPanel); // Left pane
         JPanel centerPanel = new MigPanel(new MigLayout("wrap 1"));
-        centerPanel.setMinimumSize(new Dimension(250, 50));
         if (tutorial != null) {
             // Display only if tutorial variable contents overriden
             //      Can only occur if: First Contact with a forgeign Nation
             JTextArea tutArea = Utility.localizedTextArea(tutorial, 30);
             centerPanel.add(tutArea, "center");
         }
-        JScrollPane scroll = new JScrollPane(this.summary,
-            ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
-            ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        scroll.getViewport().setOpaque(false);
-        scroll.setBorder(null);
-        centerPanel.add(scroll, "top, width 100%");
+        centerPanel.add(this.summary, "top");
         panel.add(centerPanel, "spany, top"); // Center pane
         panel.add(this.goldOfferPanel); // Right pane
 

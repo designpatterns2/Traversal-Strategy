@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -259,7 +259,6 @@ public final class ColonyPanel extends PortPanel
                           + "[growprio 150,shrinkprio 50]"
                           + "[growprio 150,shrinkprio 50][]"));
 
-        final float mapScale = getGUI().getMapScale();
         final Player player = getMyPlayer();
         // Do not just use colony.getOwner() == getMyPlayer() because
         // in debug mode we are in the *server* colony, and the equality
@@ -331,7 +330,7 @@ public final class ColonyPanel extends PortPanel
 
         // Make the colony label
         Font nameBoxFont = FontLibrary.createFont(FontLibrary.FontType.HEADER,
-            FontLibrary.FontSize.SMALL, mapScale);
+            FontLibrary.FontSize.SMALL, getImageLibrary().getScaleFactor());
         boolean incompatibleFont = false;
         if (editable) {
             for (Colony c : player.getColonyList()) {
@@ -348,7 +347,8 @@ public final class ColonyPanel extends PortPanel
         }
         if(incompatibleFont) {
             nameBoxFont = FontLibrary.createFont(FontLibrary.FontType.NORMAL,
-                FontLibrary.FontSize.SMALL, mapScale);
+                FontLibrary.FontSize.SMALL,
+                getImageLibrary().getScaleFactor());
         }
         this.nameBox.setFont(nameBoxFont);
         this.nameBox.setSelectedItem(colony);
@@ -410,9 +410,9 @@ public final class ColonyPanel extends PortPanel
             JComponent.WHEN_IN_FOCUSED_WINDOW, nameIM);
 
         initialize(colony);
+        float scale = getImageLibrary().getScaleFactor();
         getGUI().restoreSavedSize(this,
-            new Dimension(200 + (int)(mapScale * 850),
-                          200 + (int)(mapScale * 525)));
+            new Dimension(200 + (int)(scale*850), 200 + (int)(scale*525)));
     }
 
 
@@ -487,7 +487,8 @@ public final class ColonyPanel extends PortPanel
         warehousePanel.initialize();
 
         add(this.nameBox, "height 42:, grow");
-        int tmp = (int)(ImageLibrary.ICON_SIZE.height * gui.getMapScale());
+        int tmp = (int)(ImageLibrary.ICON_SIZE.height
+            * gui.getImageLibrary().getScaleFactor());
         add(netProductionPanel,
             "grow, height " + (tmp+10) + ":" + (2*tmp+10) + ":" + (2*tmp+10));
         add(tilesScroll, "width 390!, height 200!, top");
@@ -720,7 +721,7 @@ public final class ColonyPanel extends PortPanel
             subMenu = new JMenuItem(menuTitle, unitIcon);
             subMenu.addActionListener((ActionEvent ae) -> {
                     unitMenu.addMenuItems(new UnitLabel(freeColClient, unit));
-                    getGUI().showPopupMenu(unitMenu, 0, 0);
+                    unitMenu.show(getGUI().getCanvas(), 0, 0);
                 });
             unitNumber++;
             colonyUnitsMenu.add(subMenu);
@@ -734,7 +735,7 @@ public final class ColonyPanel extends PortPanel
                 subMenu = new JMenuItem(menuTitle, unitIcon);
                 subMenu.addActionListener((ActionEvent ae) -> {
                         unitMenu.addMenuItems(new UnitLabel(freeColClient, unit));
-                        getGUI().showPopupMenu(unitMenu, 0, 0);
+                        unitMenu.show(getGUI().getCanvas(), 0, 0);
                     });
                 unitNumber++;
                 colonyUnitsMenu.add(subMenu);
@@ -746,7 +747,7 @@ public final class ColonyPanel extends PortPanel
                     subMenu = new JMenuItem(menuTitle, unitIcon);
                     subMenu.addActionListener((ActionEvent ae) -> {
                             unitMenu.addMenuItems(new UnitLabel(freeColClient, innerUnit));
-                            getGUI().showPopupMenu(unitMenu, 0, 0);
+                            unitMenu.show(getGUI().getCanvas(), 0, 0);
                         });
                     unitNumber++;
                     colonyUnitsMenu.add(subMenu);
@@ -758,7 +759,7 @@ public final class ColonyPanel extends PortPanel
                 subMenu = new JMenuItem(menuTitle, unitIcon);
                 subMenu.addActionListener((ActionEvent ae) -> {
                         unitMenu.addMenuItems(new UnitLabel(freeColClient, unit));
-                        getGUI().showPopupMenu(unitMenu, 0, 0);
+                        unitMenu.show(getGUI().getCanvas(), 0, 0);
                     });
                 unitNumber++;
                 colonyUnitsMenu.add(subMenu);
@@ -772,7 +773,7 @@ public final class ColonyPanel extends PortPanel
                 colonyUnitsMenu.remove(lastIndex);
             }
         }
-        getGUI().showPopupMenu(colonyUnitsMenu, 0, 0);
+        colonyUnitsMenu.show(getGUI().getCanvas(), 0, 0);
     }
 
     /**
@@ -956,9 +957,20 @@ public final class ColonyPanel extends PortPanel
         }
 
         cleanup();
+
         getGUI().removeComponent(this);
-        // Abandon colony and active unit handling is in IGC
-        igc().closeColony(colony, abandon);
+        getGUI().updateMapControls();
+
+        // Talk to the controller last, allow all the cleanup to happen first.
+        if (abandon) igc().abandonColony(colony);
+        if (getFreeColClient().currentPlayerIsMyPlayer()) {
+            igc().nextModelMessage();
+            Unit activeUnit = getGUI().getActiveUnit();
+            if (activeUnit == null || !activeUnit.hasTile()
+                || (!activeUnit.isOnTile() && !activeUnit.isOnCarrier())) {
+                igc().nextActiveUnit();
+            }
+        }
     }
 
 
@@ -1878,7 +1890,7 @@ public final class ColonyPanel extends PortPanel
         private final Tile[][] tiles = new Tile[3][3];
 
         /** A currently displayed production message. */
-        private FreeColPanel cachedPanel = null;
+        private InformationPanel cachedPanel = null;
         /** The work location that would be better to produce with. */
         private WorkLocation bestLocation = null;
 
@@ -2286,7 +2298,6 @@ public final class ColonyPanel extends PortPanel
              *
              * @param px The x coordinate to check.
              * @param py The y coordinate to check.
-             * @return true if the coordinate is inside.
              */
             @Override
             public boolean contains(int px, int py) {

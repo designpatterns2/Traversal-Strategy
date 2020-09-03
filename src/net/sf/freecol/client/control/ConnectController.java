@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -19,13 +19,6 @@
 
 package net.sf.freecol.client.control;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
@@ -44,7 +37,17 @@ import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.util.Utils;
 import net.sf.freecol.server.FreeColServer;
 import net.sf.freecol.server.FreeColServer.ServerState;
-import static net.sf.freecol.common.util.CollectionUtils.*;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import static net.sf.freecol.common.util.CollectionUtils.alwaysTrue;
+import static net.sf.freecol.common.util.CollectionUtils.makeUnmodifiableList;
+import static net.sf.freecol.common.util.CollectionUtils.transform;
 
 
 /**
@@ -219,7 +222,7 @@ public final class ConnectController extends FreeColClientHolder {
             }
             err = StringTemplate.template("server.couldNotLogin");
         }
-        getGUI().showErrorPanel(err);
+        getGUI().showErrorMessage(err);
         return false;
     }
 
@@ -259,7 +262,7 @@ public final class ConnectController extends FreeColClientHolder {
         if (player == null) {
             StringTemplate err = StringTemplate.template("server.noSuchPlayer")
                 .addName("%player%", user);
-            getGUI().showErrorPanel(err);
+            getGUI().showErrorMessage(err);
             logger.warning(Messages.message(err));
             return;
         }
@@ -346,22 +349,24 @@ public final class ConnectController extends FreeColClientHolder {
         // public server state from the file, and update the client
         // options if possible.
         final ClientOptions options = getClientOptions();
+
+
         final boolean defaultSinglePlayer;
         final boolean defaultPublicServer;
         FreeColSavegameFile fis = null;
         try {
             fis = new FreeColSavegameFile(file);
         } catch (FileNotFoundException fnfe) {
+            gui.errorJob(fnfe, FreeCol.badFile("error.couldNotFind", file))
+                .invokeLater();
             logger.log(Level.WARNING, "Can not find file: " + file.getName(),
                        fnfe);
-            gui.showErrorPanel(fnfe,
-                FreeCol.badFile("error.couldNotFind", file));
             return false;
         } catch (IOException ioe) {
+            gui.errorJob(FreeCol.badFile("error.couldNotLoad", file))
+                .invokeLater();
             logger.log(Level.WARNING, "Could not load file: " + file.getName(),
                        ioe);
-            gui.showErrorPanel(ioe,
-                FreeCol.badFile("error.couldNotLoad", file));
             return false;
         }
         options.merge(fis);
@@ -371,10 +376,10 @@ public final class ConnectController extends FreeColClientHolder {
         try {
             values = fis.peekAttributes(savedKeys);
         } catch (Exception ex) {
+            gui.errorJob(ex, FreeCol.badFile("error.couldNotLoad", file))
+                .invokeLater();
             logger.log(Level.WARNING, "Could not read from: " + file.getName(),
                        ex);
-            gui.showErrorPanel(ex,
-                FreeCol.badFile("error.couldNotLoad", file));
             return false;
         }
         if (values != null && values.size() == savedKeys.size()) {
@@ -478,7 +483,7 @@ public final class ConnectController extends FreeColClientHolder {
         String name = FreeCol.getName();
         StringTemplate err = connect(name, host, port);
         if (err != null) {
-            getGUI().showErrorPanel(err);
+            getGUI().showErrorMessage(err);
             return false;
         }
         while (fcc.getServerState() == null) Utils.delay(1000, null);
@@ -493,7 +498,7 @@ public final class ConnectController extends FreeColClientHolder {
             /*
             // Disable this check if you need to debug a multiplayer client.
             if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.MENUS)) {
-                getGUI().showErrorPanel(StringTemplate
+                getGUI().showErrorMessage(StringTemplate
                     .template("client.debugConnect"));
                 return false;
             }
@@ -513,7 +518,7 @@ public final class ConnectController extends FreeColClientHolder {
             break;
 
         case END_GAME: default:
-            getGUI().showErrorPanel(StringTemplate.template("client.ending"));
+            getGUI().showErrorMessage(StringTemplate.template("client.ending"));
             return false;
         }
         return requestLogin(name, host, port);

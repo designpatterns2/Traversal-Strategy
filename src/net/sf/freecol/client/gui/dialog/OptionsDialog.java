@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -224,7 +224,7 @@ public abstract class OptionsDialog extends FreeColDialog<OptionGroup> {
      */
     protected boolean save(File file) {
         if (this.group.save(file, null, true)) return true;
-        getGUI().showErrorPanel(FreeCol.badFile("error.couldNotSave", file));
+        getGUI().showErrorMessage(FreeCol.badFile("error.couldNotSave", file));
         return false;
     }
 

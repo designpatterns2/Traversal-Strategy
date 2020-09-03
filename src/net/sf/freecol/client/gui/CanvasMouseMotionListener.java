@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -69,8 +69,8 @@ public final class CanvasMouseMotionListener extends AbstractCanvasListener
     @Override
     public void mouseDragged(MouseEvent me) {
         // getButton does not work here, TODO: find out why
-        if ((me.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK)
-            != MouseEvent.BUTTON1_DOWN_MASK) return;
+        if ((me.getModifiers() & MouseEvent.BUTTON1_MASK)
+            != MouseEvent.BUTTON1_MASK) return;
         performDragScrollIfActive(me);
 
         getGUI().updateGoto(me.getX(), me.getY(), true);

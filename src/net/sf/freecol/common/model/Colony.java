@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -40,8 +40,8 @@ import javax.xml.stream.XMLStreamException;
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
-import static net.sf.freecol.common.model.Constants.*;
 import net.sf.freecol.common.option.GameOptions;
+import static net.sf.freecol.common.model.Constants.*;
 import static net.sf.freecol.common.util.CollectionUtils.*;
 import net.sf.freecol.common.util.LogBuilder;
 import net.sf.freecol.common.util.RandomChoice;
@@ -68,9 +68,6 @@ public class Colony extends Settlement implements TradeLocation {
 
     /** The number of turns of advanced warning of starvation. */
     public static final int FAMINE_TURNS = 3;
-
-    /** Number of colonies that a player will trade down to. */
-    public static final int TRADE_MARGIN = 5;
 
     public static enum ColonyChangeEvent {
         POPULATION_CHANGE,
@@ -1360,28 +1357,22 @@ public class Colony extends Settlement implements TradeLocation {
      *      the negation of the number of units to remove.
      */
     public int getPreferredSizeChange() {
-        return productionBonus < 0 ? -getUnitsToRemove() : getUnitsToAdd();
+        int i, limit, pop = getUnitCount();
+        if (productionBonus < 0) {
+            limit = pop;
+            for (i = 1; i < limit; i++) {
+                if (governmentChange(pop - i) == 1) break;
+            }
+            return -i;
+        } else {
+            limit = CHANGE_UPPER_BOUND;
+            for (i = 1; i <= limit; i++) {
+                if (governmentChange(pop + i) == -1) break;
+            }
+            return i - 1;
+        }
     }
 
-    public int getUnitsToAdd() {
-        int pop = getUnitCount();
-        for (int i = 1; i <= CHANGE_UPPER_BOUND; i++) {
-            if (governmentChange(pop + i) == -1) {
-                return i - 1;
-            }
-        }
-        return CHANGE_UPPER_BOUND;
-    }
-
-    public int getUnitsToRemove() {
-        int pop = getUnitCount();
-        for (int i = 1; i < pop; i++) {
-            if (governmentChange(pop - i) == 1) {
-                return i;
-            }
-        }
-        return 0;
-    }
 
     // Unit manipulation and population
 
@@ -1787,8 +1778,7 @@ public class Colony extends Settlement implements TradeLocation {
      */
     public int evaluateFor(Player player) {
         if (player.isAI()
-            && player.owns(this)
-            && player.getSettlementCount() < Colony.TRADE_MARGIN) {
+                && player.getSettlementCount() < 5) {// FIXME: magic#
             return Integer.MIN_VALUE;
         }
         int result, v;

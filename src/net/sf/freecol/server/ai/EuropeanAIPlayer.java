@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -44,20 +44,17 @@ import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.AbstractUnit;
 import net.sf.freecol.common.model.Building;
 import net.sf.freecol.common.model.Colony;
-import net.sf.freecol.common.model.ColonyTradeItem;
 import static net.sf.freecol.common.model.Constants.*;
 import net.sf.freecol.common.model.DiplomaticTrade;
 import net.sf.freecol.common.model.DiplomaticTrade.TradeContext;
 import net.sf.freecol.common.model.DiplomaticTrade.TradeStatus;
 import net.sf.freecol.common.model.Europe;
-import net.sf.freecol.common.model.FeatureContainer;
 import net.sf.freecol.common.model.FoundingFather;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.GoldTradeItem;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.HistoryEvent;
-import net.sf.freecol.common.model.IndianSettlement;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Market;
@@ -73,7 +70,6 @@ import net.sf.freecol.common.model.Role;
 import net.sf.freecol.common.model.Settlement;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StanceTradeItem;
-import net.sf.freecol.common.model.Tension;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TradeItem;
 import net.sf.freecol.common.model.Turn;
@@ -81,7 +77,7 @@ import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.Unit.UnitState;
 import net.sf.freecol.common.model.UnitType;
 import net.sf.freecol.common.model.pathfinding.CostDeciders;
-import net.sf.freecol.common.model.pathfinding.GoalDeciders;
+import net.sf.freecol.common.model.pathfinding.goaldeciders.EnemySettlementGoalDecider;
 import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.common.util.CachingFunction;
 import static net.sf.freecol.common.util.CollectionUtils.*;
@@ -89,7 +85,6 @@ import net.sf.freecol.common.util.LogBuilder;
 import net.sf.freecol.common.util.RandomChoice;
 import static net.sf.freecol.common.util.RandomUtils.*;
 
-import net.sf.freecol.server.ai.GoodsWish;
 import net.sf.freecol.server.ai.mission.BuildColonyMission;
 import net.sf.freecol.server.ai.mission.CashInTreasureTrainMission;
 import net.sf.freecol.server.ai.mission.DefendSettlementMission;
@@ -104,8 +99,6 @@ import net.sf.freecol.server.ai.mission.UnitSeekAndDestroyMission;
 import net.sf.freecol.server.ai.mission.UnitWanderHostileMission;
 import net.sf.freecol.server.ai.mission.WishRealizationMission;
 import net.sf.freecol.server.ai.mission.WorkInsideColonyMission;
-import net.sf.freecol.server.ai.ValuedAIObject;
-import net.sf.freecol.server.ai.WorkerWish;
 import net.sf.freecol.server.model.ServerPlayer;
 
 
@@ -627,7 +620,7 @@ public class EuropeanAIPlayer extends MissionAIPlayer {
                     "AIColony to defend", bad, air);
                 Tile center = defend.getColony().getTile();
                 Tile t = game.getMap().searchCircle(center,
-                    GoalDeciders.getEnemySettlementGoalDecider(enemies),
+                    new EnemySettlementGoalDecider(enemies),
                     30);
                 if (t != null) target = t.getSettlement();
             }
@@ -2411,19 +2404,13 @@ public class EuropeanAIPlayer extends MissionAIPlayer {
             // Synthetic event
             result = TradeStatus.PROPOSE_TRADE;
         } else {
-            int unacceptable = 0, value = 0, colonies = 0;
+            int unacceptable = 0, value = 0;
             for (TradeItem item : agreement.getItems()) {
                 if (item instanceof StanceTradeItem) {
                     getNationSummary(other); // Freshen the name summary cache
                 }                    
                 int score = item.evaluateFor(player);
-                if (item instanceof ColonyTradeItem) {
-                    if (item.getSource() == player) {
-                        colonies++;
-                    } else {
-                        colonies--;
-                    }
-                } else if (item instanceof StanceTradeItem) {
+                if (item instanceof StanceTradeItem) {
                     // Handle some special cases
                     switch (item.getStance()) {
                     case ALLIANCE: case CEASE_FIRE:
@@ -2452,11 +2439,7 @@ public class EuropeanAIPlayer extends MissionAIPlayer {
             }
             lb.add(".");
 
-            if (colonies > 0
-                && colonies > player.getSettlementCount() - Colony.TRADE_MARGIN) {
-                result = rejectAgreement(peace, agreement);
-                lb.add("  Too many (", colonies, ") colonies lost.");
-            } else if (unacceptable == 0 && value >= 0) { // Accept if all good
+            if (unacceptable == 0 && value >= 0) { // Accept if all good
                 result = TradeStatus.ACCEPT_TRADE;
                 lb.add("  All accepted at ", value, ".");
             } else { // If too many items are unacceptable, reject

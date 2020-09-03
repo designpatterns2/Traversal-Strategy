@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -2982,7 +2982,7 @@ public final class InGameController extends Controller {
                 Tension.TENSION_ADD_MAJOR, cs);//+til
             ((ServerPlayer)other).addMissionBan(serverPlayer);
         }
-        if (session != null) session.completeFirstContact(cs);
+        if (session != null) session.complete(result, cs);
         getGame().sendToOthers(serverPlayer, cs);
         return cs;
     }
@@ -3624,7 +3624,7 @@ public final class InGameController extends Controller {
         colony.setBuildQueue(queue);
         if (getGame().getSpecification()
             .getBoolean(GameOptions.CLEAR_HAMMERS_ON_CONSTRUCTION_SWITCH)
-            && current != null && current != colony.getCurrentlyBuilding()) {
+            && current != colony.getCurrentlyBuilding()) {
             for (AbstractGoods ag : transform(current.getRequiredGoods(),
                     g -> !g.getType().isStorable())) {
                 colony.removeGoods(ag.getType());

@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -19,7 +19,6 @@
 
 package net.sf.freecol.common.model;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -36,14 +35,14 @@ import javax.xml.stream.XMLStreamException;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
-import net.sf.freecol.common.model.CombatModel;
+
 import static net.sf.freecol.common.model.Constants.*;
-import net.sf.freecol.common.model.Direction;
+
 import net.sf.freecol.common.model.pathfinding.CostDecider;
 import net.sf.freecol.common.model.pathfinding.CostDeciders;
-import net.sf.freecol.common.model.pathfinding.GoalDecider;
-import net.sf.freecol.common.model.pathfinding.GoalDeciders;
-import net.sf.freecol.common.model.UnitTypeChange;
+import net.sf.freecol.common.model.pathfinding.goaldeciders.CornerGoalDecider;
+import net.sf.freecol.common.model.pathfinding.goaldeciders.GoalDecider;
+import net.sf.freecol.common.model.pathfinding.goaldeciders.ReduceHighSeasCountGoalDecider;
 import net.sf.freecol.common.option.GameOptions;
 import static net.sf.freecol.common.util.CollectionUtils.*;
 import net.sf.freecol.common.util.LogBuilder;
@@ -138,9 +137,6 @@ public class Unit extends GoodsLocation
      */
     public static final int MANY_TURNS = 10000;
 
-    /** Default value of unpriced units, used in evaluate_for. */
-    public static final int DEFAULT_UNIT_VALUE = 500;
-    
     public static final String CARGO_CHANGE = "CARGO_CHANGE";
     public static final String MOVE_CHANGE = "MOVE_CHANGE";
     public static final String ROLE_CHANGE = "ROLE_CHANGE";
@@ -2836,7 +2832,7 @@ public class Unit extends GoodsLocation
             if (tile != null && tile.isOnRiver()
                 && tile.isHighSeasConnected()) {
                 path = search(getLocation(),
-                    GoalDeciders.getCornerGoalDecider(),
+                    new CornerGoalDecider(),
                     CostDeciders.avoidSettlementsAndBlockingUnits(),
                     INFINITY, null);
                 if (path == null && tile.isRiverCorner()) {
@@ -3245,7 +3241,7 @@ public class Unit extends GoodsLocation
             // Starting on a river, probably blocked in there.
             // Find the settlement that most reduces the high seas count.
             path = search(getLocation(),
-                          GoalDeciders.getReduceHighSeasCountGoalDecider(this),
+                          new ReduceHighSeasCountGoalDecider(this),
                           null, INFINITY, null);
             break;
         case BLOCKED:
@@ -3832,9 +3828,7 @@ public class Unit extends GoodsLocation
      */
     public int evaluateFor(Player player) {
         final Europe europe = player.getEurope();
-        if (europe == null) return DEFAULT_UNIT_VALUE;
-        int price = europe.getUnitPrice(getType());
-        return (price == UNDEFINED) ? DEFAULT_UNIT_VALUE : price;
+        return (europe == null) ? 500 : europe.getUnitPrice(getType());
     }
 
     // @compat 0.11.0
@@ -4739,6 +4733,7 @@ public class Unit extends GoodsLocation
         Player oldOwner = owner;
         owner = xr.findFreeColGameObject(game, OWNER_TAG,
                                          Player.class, (Player)null, true);
+        if (xr.shouldIntern()) game.checkOwners(this, oldOwner);
 
         this.type = xr.getType(spec, UNIT_TYPE_TAG,
                                UnitType.class, (UnitType)null);
@@ -4800,9 +4795,6 @@ public class Unit extends GoodsLocation
         // Fix changes to production
         WorkLocation wl = getWorkLocation();
         if (wl != null && wl != oldWorkLocation) wl.updateProductionType();
-
-        // Check ownership as late as possible
-        if (xr.shouldIntern()) game.checkOwners(this, oldOwner);
     }
 
     /**
@@ -4871,11 +4863,7 @@ public class Unit extends GoodsLocation
             sb.append(" uninitialized");
         } else if (isDisposed()) {
             sb.append(" disposed");
-        } else if (owner == null) {
-            sb.append(" unowned");
-        } else if (getType() == null) {
-            sb.append(" untyped");
-        } else {            
+        } else {
             sb.append(' ').append(lastPart(owner.getNationId(), "."))
                 .append(' ').append(getType().getSuffix());
             if (!hasDefaultRole()) {

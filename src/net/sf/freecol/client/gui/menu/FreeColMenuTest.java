@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -137,7 +137,7 @@ public class FreeColMenuTest implements ActionListener, ItemListener {
         FreeColClient client = FreeColClient.startTestClient(null);
         FreeColFrame frame = new FreeColFrame(client,
             GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice(),
-            null, true, null);
+            null, null, true, null);
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
         //Create and set up the content pane.

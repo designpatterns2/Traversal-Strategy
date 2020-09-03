@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -50,8 +50,7 @@ import net.sf.freecol.common.model.Settlement;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.pathfinding.CostDeciders;
-import net.sf.freecol.common.model.pathfinding.GoalDecider;
-import net.sf.freecol.common.model.pathfinding.GoalDeciders;
+import net.sf.freecol.common.model.pathfinding.goaldeciders.*;
 import net.sf.freecol.common.util.CachingFunction;
 import static net.sf.freecol.common.util.CollectionUtils.*;
 import net.sf.freecol.common.util.LogBuilder;
@@ -368,8 +367,7 @@ public final class REFAIPlayer extends EuropeanAIPlayer {
         // location for it.
         int fail = 0;
         for (TargetTuple t : targets) {
-            final GoalDecider gd = GoalDeciders
-                .getDisembarkGoalDecider(t.colony.getTile());
+            final GoalDecider gd = new DisembarkGoalDecider(t.colony.getTile());
             PathNode path = unit.search(t.entry, gd, null, 10, carrier);
             if (path == null) {
                 t.disembarkTile = null;
@@ -413,9 +411,9 @@ public final class REFAIPlayer extends EuropeanAIPlayer {
             // Try to arrive on the map without being seen, while retaining
             // a path to the disembark tile that is at worst one turn
             // slower than the existing one.
-            GoalDecider stealthGD = GoalDeciders.getComposedGoalDecider(true,
-                GoalDeciders.getHighSeasGoalDecider(),
-                GoalDeciders.getStealthyGoalDecider(rebel));
+            GoalDecider stealthGD = new ComposedGoalDecider(true,
+                    new HighSeasGoalDecider(),
+                    new StealthyGoalDecider(rebel));
             for (int i = 0; i < n; i++) {
                 final TargetTuple t = targets.get(i);
                 if (!rebel.canSee(t.entry)) continue;

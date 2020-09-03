@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -45,14 +45,12 @@ import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.client.gui.ImageLibrary;
 import net.sf.freecol.common.debug.FreeColDebugger;
-import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 import static net.sf.freecol.common.model.Constants.*;
 import net.sf.freecol.common.model.pathfinding.CostDecider;
 import net.sf.freecol.common.model.pathfinding.CostDeciders;
-import net.sf.freecol.common.model.pathfinding.GoalDecider;
-import net.sf.freecol.common.model.pathfinding.GoalDeciders;
+import net.sf.freecol.common.model.pathfinding.goaldeciders.*;
 import net.sf.freecol.common.util.LogBuilder;
 import static net.sf.freecol.common.util.CollectionUtils.*;
 import static net.sf.freecol.common.util.RandomUtils.*;
@@ -271,14 +269,14 @@ public class Map extends FreeColGameObject implements Location {
     /**
      * The latitude of the northern edge of the map. A negative value
      * indicates northern latitude, a positive value southern
-     * latitude. Thus, -30 equals 30 degrees N, and 40 equals 40 degrees S.
+     * latitude. Thus, -30 equals 30°N, and 40 equals 40°S.
      */
     private int minimumLatitude = -90;
 
     /**
      * The latitude of the southern edge of the map. A negative value
      * indicates northern latitude, a positive value southern
-     * latitude. Thus, -30 equals 30 degrees N, and 40 equals 40 degrees S.
+     * latitude. Thus, -30 equals 30°N, and 40 equals 40°S.
      */
     private int maximumLatitude = 90;
 
@@ -1181,7 +1179,7 @@ public class Map extends FreeColGameObject implements Location {
                                       CostDecider costDecider) {
         if (costDecider == null)
             costDecider = CostDeciders.avoidSettlementsAndBlockingUnits();
-        return searchMap(unit, tile, GoalDeciders.getHighSeasGoalDecider(),
+        return searchMap(unit, tile, new HighSeasGoalDecider(),
                          costDecider, INFINITY, carrier, null, null);
     }
 
@@ -1222,7 +1220,7 @@ public class Map extends FreeColGameObject implements Location {
         final Unit offMapUnit = (carrier != null) ? carrier
             : (unit != null && unit.isNaval()) ? unit
             : null;
-        final GoalDecider gd = GoalDeciders.getLocationGoalDecider(end);
+        final GoalDecider gd = new LocationGoalDecider(end);
         final SearchHeuristic sh = getManhattenHeuristic(end);
         Unit embarkTo, endUnit;
 
@@ -1268,9 +1266,17 @@ public class Map extends FreeColGameObject implements Location {
             && (embarkTo = end.getCarrierForUnit(unit)) != null) {
             // Special case where a land unit is trying to move from
             // land to an adjacent ship.
-            path = searchMap(unit, start,
-                             GoalDeciders.getAdjacentLocationGoalDecider(end),
-                             costDecider, INFINITY, null, null, lb);
+            if(end.getTile() == null) {
+                path = searchMap(unit, start,
+                        null,
+                        costDecider, INFINITY, null, null, lb);
+            }
+            else{
+                path = searchMap(unit, start,
+                        new AdjacentLocationGoalDecider(end),
+                        costDecider, INFINITY, null, null, lb);
+            }
+
             if (path != null) {
                 PathNode last = path.getLastNode();
                 last.next = new PathNode(embarkTo, 0, last.getTurns()+1, true,
@@ -1419,7 +1425,7 @@ public class Map extends FreeColGameObject implements Location {
                 
                 // Search forwards to the high seas.
             } else if ((p = searchMap(unit, (Tile)start,
-                        GoalDeciders.getHighSeasGoalDecider(),
+                        new HighSeasGoalDecider(),
                         costDecider, INFINITY, carrier, null, lb)) == null) {
                 path = null;
 
@@ -2630,8 +2636,8 @@ ok:     while (!openMap.isEmpty()) {
      * {@inheritDoc}
      */
     @Override
-    public String getLocationImageKey() {
-        return ImageLibrary.LOST_CITY_RUMOUR;
+    public ImageIcon getLocationImage(int cellHeight, ImageLibrary library) {
+        return new ImageIcon(library.getScaledImage(ImageLibrary.LOST_CITY_RUMOUR));
     }
 
 

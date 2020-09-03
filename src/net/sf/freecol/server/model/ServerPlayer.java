@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -83,7 +83,6 @@ import net.sf.freecol.common.model.Role;
 import net.sf.freecol.common.model.Settlement;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.Stance;
-import net.sf.freecol.common.model.StanceTradeItem;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tension;
 import net.sf.freecol.common.model.Tile;
@@ -94,17 +93,14 @@ import net.sf.freecol.common.model.UnitChangeType;
 import net.sf.freecol.common.model.UnitTypeChange;
 import net.sf.freecol.common.model.UnitType;
 import net.sf.freecol.common.model.WorkLocation;
-import net.sf.freecol.common.model.pathfinding.GoalDeciders;
+import net.sf.freecol.common.model.pathfinding.goaldeciders.SimpleHighSeasGoalDecider;
 import net.sf.freecol.common.networking.ChangeSet;
 import net.sf.freecol.common.networking.ChangeSet.See;
 import net.sf.freecol.common.networking.ChooseFoundingFatherMessage;
 import net.sf.freecol.common.networking.Connection;
-import net.sf.freecol.common.networking.DiplomacyMessage;
-import net.sf.freecol.common.networking.ErrorMessage;
 import net.sf.freecol.common.networking.FirstContactMessage;
 import net.sf.freecol.common.networking.IndianDemandMessage;
 import net.sf.freecol.common.networking.LootCargoMessage;
-import net.sf.freecol.common.networking.Message;
 import net.sf.freecol.common.networking.MonarchActionMessage;
 import net.sf.freecol.common.networking.SetDeadMessage;
 import net.sf.freecol.common.option.GameOptions;
@@ -4465,7 +4461,7 @@ outer:  for (Effect effect : effects) {
                                               ports, random);
                 Tile portTile = port.getTile();
                 Tile entry = game.getMap().searchCircle(portTile,
-                    GoalDeciders.getSimpleHighSeasGoalDecider(),
+                    new SimpleHighSeasGoalDecider(),
                     portTile.getHighSeasCount()+1).getSafeTile(this, random);
                 
                 // Create the force.

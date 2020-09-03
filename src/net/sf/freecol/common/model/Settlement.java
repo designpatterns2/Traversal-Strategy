@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -604,8 +604,9 @@ public abstract class Settlement extends GoodsLocation
      * {@inheritDoc}
      */
     @Override
-    public String getLocationImageKey() {
-        return ImageLibrary.getSettlementKey(this);
+    public ImageIcon getLocationImage(int cellHeight, ImageLibrary library) {
+        return new ImageIcon(ImageLibrary.getSettlementImage(this,
+                                                             new Dimension(64, -1)));
     }
 
 
@@ -880,14 +881,13 @@ public abstract class Settlement extends GoodsLocation
         Player oldOwner = owner;
         owner = xr.findFreeColGameObject(game, OWNER_TAG,
                                          Player.class, (Player)null, true);
+        if (xr.shouldIntern()) game.checkOwners(this, oldOwner);
 
         tile = xr.findFreeColGameObject(game, TILE_TAG,
                                         Tile.class, (Tile)null, true);
 
         String newType = xr.getAttribute(SETTLEMENT_TYPE_TAG, (String)null);
         type = owner.getNationType().getSettlementType(newType);
-
-        if (xr.shouldIntern()) game.checkOwners(this, oldOwner);
     }
 
     /**

@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -18,7 +18,7 @@
  */
 
 
-package net.sf.freecol.common.model.pathfinding;
+package net.sf.freecol.common.model.pathfinding.goaldeciders;
 
 import net.sf.freecol.common.model.PathNode;
 import net.sf.freecol.common.model.Unit;

@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -61,7 +61,6 @@ import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.Colony;
 import static net.sf.freecol.common.model.Constants.*;
 import net.sf.freecol.common.model.Europe;
-import net.sf.freecol.common.model.FreeColObject;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsType;
@@ -69,17 +68,15 @@ import net.sf.freecol.common.model.IndianSettlement;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Market;
-import net.sf.freecol.common.model.Nation;
 import net.sf.freecol.common.model.PathNode;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Settlement;
-import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.Stance;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitChangeType;
 import net.sf.freecol.common.model.UnitType;
-import net.sf.freecol.common.model.pathfinding.GoalDeciders.MultipleAdjacentDecider;
+import net.sf.freecol.common.model.pathfinding.goaldeciders.MultipleAdjacentDecider;
 import net.sf.freecol.common.resources.ResourceManager;
 import net.sf.freecol.common.util.LogBuilder;
 import static net.sf.freecol.common.util.CollectionUtils.*;
@@ -299,9 +296,7 @@ public final class SelectDestinationDialog extends FreeColDialog<Location>
         @Override
         public void setLabelValues(JLabel label, Destination value) {
             label.setText(value.text);
-            String key = value.location.getLocationImageKey();
-            label.setIcon(new ImageIcon(this.lib.getSizedImage(key,
-                        new Dimension(-1, CELL_HEIGHT), false)));
+            label.setIcon(value.location.getLocationImage(CELL_HEIGHT, this.lib));
         }
     }
 

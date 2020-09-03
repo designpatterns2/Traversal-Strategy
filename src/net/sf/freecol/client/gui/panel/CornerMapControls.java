@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -20,13 +20,10 @@
 package net.sf.freecol.client.gui.panel;
 
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.Graphics;
 import java.awt.Image;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -37,6 +34,7 @@ import javax.swing.border.BevelBorder;
 
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
+import net.sf.freecol.client.gui.Canvas;
 import net.sf.freecol.client.gui.ImageLibrary;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Unit;
@@ -47,12 +45,16 @@ import net.sf.freecol.common.model.Unit;
  * user with a more detailed view of certain elements on the map and
  * also to provide a means of input in case the user can't use the
  * keyboard.
+ *
+ * The MapControls are useless by themselves, this object needs to be
+ * placed on a JComponent in order to be usable.
  */
 public final class CornerMapControls extends MapControls {
 
     private static final Logger logger = Logger.getLogger(CornerMapControls.class.getName());
 
     public class MiniMapPanel extends JPanel {
+
         /**
          * {@inheritDoc}
          */
@@ -65,13 +67,10 @@ public final class CornerMapControls extends MapControls {
         }
     }
 
-    /** The compass rose graphic. */
     private final JLabel compassRose;
 
-    /** The mini map has its own panel. */
     private final MiniMapPanel miniMapPanel;
 
-    /** A skin for the mini map. */
     private final Image miniMapSkin;
 
 
@@ -83,143 +82,173 @@ public final class CornerMapControls extends MapControls {
     public CornerMapControls(final FreeColClient freeColClient) {
         super(freeColClient, true);
 
-        final boolean rose = getClientOptions()
-            .getBoolean(ClientOptions.DISPLAY_COMPASS_ROSE);
-        if (rose) {
-            this.compassRose = new JLabel(new ImageIcon(ImageLibrary
-                    .getUnscaledImage("image.skin.compass")));
-            this.compassRose.setFocusable(false);
-            this.compassRose.setSize(compassRose.getPreferredSize());
-            this.compassRose.addMouseListener(new MouseAdapter() {
-                    /**
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public void mouseClicked(MouseEvent e) {
-                        Unit unit = getGUI().getActiveUnit();
-                        if (unit == null) return;
-                        int x = e.getX() - compassRose.getWidth()/2;
-                        int y = e.getY() - compassRose.getHeight()/2;
-                        double theta = Math.atan2(y, x) + Math.PI/2 + Math.PI/8;
-                        if (theta < 0) {
-                            theta += 2*Math.PI;
-                        }
-                        igc().moveUnit(unit, Direction.angleToDirection(theta));
-                    }
-                });
-        } else {
-            this.compassRose = null;
-        }
+        compassRose = new JLabel(new ImageIcon(ImageLibrary
+                .getUnscaledImage("image.skin.compass")));
+        compassRose.setFocusable(false);
+        compassRose.setSize(compassRose.getPreferredSize());
+        compassRose.addMouseListener(new MouseAdapter() {
 
-        this.miniMapPanel = new MiniMapPanel();
-        this.miniMapPanel.setFocusable(false);
+                /**
+                 * {@inheritDoc}
+                 */
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    Unit unit = getGUI().getActiveUnit();
+                    if (unit == null) return;
+                    int x = e.getX() - compassRose.getWidth()/2;
+                    int y = e.getY() - compassRose.getHeight()/2;
+                    double theta = Math.atan2(y, x) + Math.PI/2 + Math.PI/8;
+                    if (theta < 0) {
+                        theta += 2*Math.PI;
+                    }
+                    igc().moveUnit(unit, Direction.angleToDirection(theta));
+                }
+            });
+
+        miniMapPanel = new MiniMapPanel();
+        miniMapPanel.setFocusable(false);
+        
         /**
          * In order to make the setLocation setup work, we need to set
          * the layout to null first, then set the size of the minimap,
          * and then its location.
          */
-        this.miniMapPanel.setLayout(null);
-        this.miniMap.setSize(MINI_MAP_WIDTH, MINI_MAP_HEIGHT);
+        miniMapPanel.setLayout(null);
+        miniMap.setSize(MAP_WIDTH, MAP_HEIGHT);
         // Add buttons:
-        this.miniMapPanel.add(this.miniMapToggleBorders);
-        this.miniMapPanel.add(this.miniMapToggleFogOfWarButton);
-        this.miniMapPanel.add(this.miniMapZoomInButton);
-        this.miniMapPanel.add(this.miniMapZoomOutButton);
-        this.miniMapPanel.add(this.miniMap);
+        miniMapPanel.add(miniMapToggleBorders);
+        miniMapPanel.add(miniMapToggleFogOfWarButton);
+        miniMapPanel.add(miniMapZoomInButton);
+        miniMapPanel.add(miniMapZoomOutButton);
+        miniMapPanel.add(miniMap);
 
         if ((this.miniMapSkin = ImageLibrary.getMiniMapSkin()) != null) {
-            this.miniMapPanel.setBorder(null);
-            this.miniMapPanel.setSize(this.miniMapSkin.getWidth(null),
-                                      this.miniMapSkin.getHeight(null));
-            this.miniMapPanel.setOpaque(false);
+            miniMapPanel.setBorder(null);
+            miniMapPanel.setSize(miniMapSkin.getWidth(null),
+                                 miniMapSkin.getHeight(null));
+            miniMapPanel.setOpaque(false);
             // FIXME: LATER: The values below should be specified by a
             // skin-configuration-file.
-            this.miniMap.setLocation(38, 75);
-            this.miniMapToggleBorders.setLocation(4,114);
-            this.miniMapToggleFogOfWarButton.setLocation(4, 144);
-            this.miniMapZoomInButton.setLocation(4, 174);
-            this.miniMapZoomOutButton.setLocation(264, 174);
+            miniMap.setLocation(38, 75);
+            miniMapToggleBorders.setLocation(4,114);
+            miniMapToggleFogOfWarButton.setLocation(4, 144);
+            miniMapZoomInButton.setLocation(4, 174);
+            miniMapZoomOutButton.setLocation(264, 174);
         } else {
-            int width = this.miniMapZoomOutButton.getWidth()
-                + this.miniMapZoomInButton.getWidth() + 4 * GAP;
-            this.miniMapPanel.setOpaque(true);
-            this.miniMap.setBorder(new BevelBorder(BevelBorder.RAISED));
-            this.miniMap.setLocation(width/2, GAP);
-            this.miniMapZoomInButton.setLocation(GAP, 
-                MINI_MAP_HEIGHT + GAP - this.miniMapZoomInButton.getHeight());
-            this.miniMapZoomOutButton.setLocation(MINI_MAP_WIDTH + 3 * GAP
-                | this.miniMapZoomInButton.getWidth(),
-                MINI_MAP_HEIGHT + GAP - this.miniMapZoomOutButton.getHeight());
+            int width = miniMapZoomOutButton.getWidth()
+                + miniMapZoomInButton.getWidth() + 4 * GAP;
+            miniMapPanel.setOpaque(true);
+            miniMap.setBorder(new BevelBorder(BevelBorder.RAISED));
+            miniMap.setLocation(width/2, GAP);
+            miniMapZoomInButton.setLocation(GAP, 
+                MAP_HEIGHT + GAP - miniMapZoomInButton.getHeight());
+            miniMapZoomOutButton.setLocation(
+                miniMapZoomInButton.getWidth() + MAP_WIDTH + 3 * GAP,
+                MAP_HEIGHT + GAP - miniMapZoomOutButton.getHeight());
         }
     }
 
-            
+
+    /**
+     * Add a component to the canvas.
+     *
+     * @param canvas The {@code Canvas} to add to.
+     * @param component The component to add.
+     */
+    private void addToCanvas(Canvas canvas, Component component) {
+        canvas.add(component, CONTROLS_LAYER);
+    }
+
+
     // Implement MapControls
 
     /**
-     * {@inheritDoc}
+     * Adds the map controls to the given canvas.
+     *
+     * @param canvas The parent {@code Canvas}.
      */
     @Override
-    public List<Component> getComponentsToAdd(Dimension newSize) {
-        List<Component> ret = new ArrayList<>();
-        if (getGame() == null) return ret;
-        
-        final int cw = newSize.width;
-        final int ch = newSize.height;
+    public void addToComponent(Canvas canvas) {
+        if (getGame() == null || getGame().getMap() == null) return;
 
-        if (!this.infoPanel.isShowing()) {
-            this.infoPanel.setLocation(cw - this.infoPanel.getWidth(),
-                                       ch - this.infoPanel.getHeight());
-            this.infoPanel.refresh();
-            ret.add(this.infoPanel);
-        }
-        
-        if (!this.miniMapPanel.isShowing()) {
-            this.miniMapPanel.setLocation(0, ch - this.miniMapPanel.getHeight());
-            ret.add(this.miniMapPanel);
-        }
+        final boolean rose = getClientOptions().getBoolean(ClientOptions.DISPLAY_COMPASS_ROSE);
 
-        if (this.compassRose != null && !this.compassRose.isShowing()) {
-            this.compassRose.setLocation(cw - this.compassRose.getWidth() - 20, 20);
-            ret.add(this.compassRose);
+        //
+        // Relocate GUI Objects
+        //
+        final int cw = canvas.getWidth();
+        final int ch = canvas.getHeight();
+        infoPanel.setLocation(cw - infoPanel.getWidth(),
+                              ch - infoPanel.getHeight());
+        miniMapPanel.setLocation(0, ch - miniMapPanel.getHeight());
+        if (rose) {
+            compassRose.setLocation(cw - compassRose.getWidth() - 20, 20);
         }
-
-        if (!this.unitButtons.isEmpty()
-            && !this.getFreeColClient().isMapEditor()) {
+        if (!unitButtons.isEmpty()) {
             final int SPACE = 5;
             int width = -SPACE, height = 0;
-            for (UnitButton ub : this.unitButtons) {
-                if (ub.isShowing()) continue;
+            for (UnitButton ub : unitButtons) {
                 height = Math.max(height, ub.getHeight());
                 width += SPACE + ub.getWidth();
             }
-            int x = this.miniMapPanel.getWidth() + 1
-                + (this.infoPanel.getX() - this.miniMapPanel.getWidth() - width) / 2;
+            int x = miniMapPanel.getWidth() + 1
+                + (infoPanel.getX() - miniMapPanel.getWidth() - width) / 2;
             int y = ch - height - SPACE;
-            for (UnitButton ub : this.unitButtons) {
-                if (ub.isShowing()) continue;
+            for (UnitButton ub : unitButtons) {
                 ub.setLocation(x, y);
                 x += SPACE + ub.getWidth();
-                ub.refreshAction();
-                ret.add(ub);
             }
         }
-        return ret;
+
+        //
+        // Add the GUI Objects to the container
+        //
+        addToCanvas(canvas, infoPanel);
+        addToCanvas(canvas, miniMapPanel);
+        if (rose) addToCanvas(canvas, compassRose);
+        if (!getFreeColClient().isMapEditor()) {
+            for (UnitButton button : unitButtons) {
+                try {
+                    addToCanvas(canvas, button);
+                    button.refreshAction();
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error adding button " + button
+                        + " of size " + button.getSize()
+                        + " at " + button.getLocation()
+                        + " in " + canvas.getSize(), e);
+                }
+            }
+        }
     }
 
     /**
-     * {@inheritDoc}
+     * Are these map controls showing?
+     *
+     * @return True if the map controls are showing.
      */
     @Override
-    public List<Component> getComponentsPresent() {
-        List<Component> ret = new ArrayList<>();
-        if (this.infoPanel.isShowing()) ret.add(this.infoPanel);
-        if (this.miniMapPanel.isShowing()) ret.add(this.miniMapPanel);
-        if (this.compassRose != null
-            && this.compassRose.isShowing()) ret.add(this.compassRose);
-        for (UnitButton ub : this.unitButtons) {
-            if (ub.isShowing()) ret.add(ub);
+    public boolean isShowing() {
+        return infoPanel.getParent() != null;
+    }
+
+    /**
+     * Removes the map controls from the parent canvas.
+     *
+     * @param canvas The parent {@code Canvas}.
+     */
+    @Override
+    public void removeFromComponent(Canvas canvas) {
+        canvas.removeFromCanvas(infoPanel);
+        canvas.removeFromCanvas(miniMapPanel);
+        canvas.removeFromCanvas(compassRose);
+
+        for (UnitButton button : unitButtons) {
+            canvas.removeFromCanvas(button);
         }
-        return ret;
+    }
+
+    @Override
+    public void repaint() {
+        miniMapPanel.repaint();
     }
 }

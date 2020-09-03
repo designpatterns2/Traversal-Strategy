@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -631,9 +631,8 @@ public final class Utility {
     /**
      * Get a panel with a localized message and icon.
      *
-     * @param template The {@code StringTemplate} to use.
-     * @param icon An {@code ImageIcon} to use.
-     * @return The resulting {@code JPanel}.
+     * @param icon An <code>ImageIcon</code> to use.
+     * @param template The <code>StringTemplate</code> to use.
      */
     public static JPanel localizedTextPanel(StringTemplate template,
                                             ImageIcon icon) {

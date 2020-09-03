@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -53,7 +53,7 @@ public class ChatAction extends FreeColAction {
     protected boolean shouldBeEnabled() {
         return super.shouldBeEnabled()
             && !freeColClient.getSinglePlayer()
-            && (!getGUI().isPanelShowing() || getGame() != null
+            && (!getGUI().isShowingSubPanel() || getGame() != null
                 && !freeColClient.currentPlayerIsMyPlayer());
     }
 

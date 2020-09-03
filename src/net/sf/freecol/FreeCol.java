@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -835,9 +835,9 @@ public final class FreeCol {
                 }
             }
 
-            boolean seeded = (line.hasOption("seed")
-                && FreeColSeed.setFreeColSeed(line.getOptionValue("seed")));
-            if (!seeded) FreeColSeed.generateFreeColSeed();
+            if (line.hasOption("seed")) {
+                FreeColSeed.setFreeColSeed(line.getOptionValue("seed"));
+            }
 
             if (line.hasOption("splash")) {
                 String splash = line.getOptionValue("splash");
@@ -1299,9 +1299,6 @@ public final class FreeCol {
      * @return The host name.
      */
     public static String getServerHost() {
-        try {
-            return InetAddress.getLocalHost().getHostAddress();
-        } catch (Exception e) {}
         return InetAddress.getLoopbackAddress().getHostAddress();
     }
 
@@ -1510,7 +1507,6 @@ public final class FreeCol {
             .append((save == null) ? "NONE" : save.getPath())
             .append("\n  userMods:   ")
             .append((userMods == null) ? "NONE" : userMods.getPath())
-            .append("\n  seed:       ").append(FreeColSeed.getFreeColSeed())
             .append("\n  debug:      ")
             .append(FreeColDebugger.getDebugModes());
         return sb;

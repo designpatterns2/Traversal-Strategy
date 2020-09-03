@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2002-2020   The FreeCol Team
+ *  Copyright (C) 2002-2019   The FreeCol Team
  *
  *  This file is part of FreeCol.
  *
@@ -198,7 +198,7 @@ public final class FindSettlementPanel extends FreeColPanel
             getGUI().showColonyPanel((Colony)settlement, null);
         } else if (settlement instanceof IndianSettlement) {
             getGUI().removeComponent(FindSettlementPanel.this);
-            getGUI().showIndianSettlementPanel((IndianSettlement)settlement);
+            getGUI().showIndianSettlement((IndianSettlement)settlement);
         }
     }
 
